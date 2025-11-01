@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
+import { getJwtSecret } from '@repo/common/config';
 import "dotenv/config";
 
 export const userMiddleware = (req: Request, res: Response, next: NextFunction) => {
@@ -12,7 +13,7 @@ export const userMiddleware = (req: Request, res: Response, next: NextFunction) 
             });
         }
         const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
-        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
+        const decoded = jwt.verify(token, getJwtSecret()) as JwtPayload;
 
         if (!decoded.userId) {
             return res.status(403).json({

@@ -1,5 +1,6 @@
 import { WebSocketServer } from "ws";
 import jwt, { JwtPayload } from "jsonwebtoken";
+import { getJwtSecret } from '@repo/common/config';
 
 const wss = new WebSocketServer({ port: 3002 });
 
@@ -22,7 +23,7 @@ wss.on('connection', (ws, req) => {
         return;
     }
 
-    const jwtSecret = process.env.JWT_SECRET;
+    const jwtSecret = getJwtSecret();
     if (!jwtSecret) {
         ws.close(1011, 'Server configuration error');
         return;
