@@ -1,4 +1,4 @@
-import { prisma } from '@repo/db/db';
+import { prisma } from '@repo/db';
 import { getJwtSecret } from '@repo/common/config';
 import { createUserSchema } from '@repo/common/types';
 import { Router, type Router as RouterType } from "express";
@@ -21,11 +21,11 @@ router.post("/signup", async (req, res) => {
             errors: formattedErrors
         });
     };
-    const { username, password, name } = requiredBody.data;
+    const { email, password, name } = requiredBody.data;
     try {
         const userExisted = await prisma.user.findFirst({
             where: {
-                username
+                email
             }
         });
         if (userExisted) {
@@ -38,14 +38,14 @@ router.post("/signup", async (req, res) => {
 
         const user = await prisma.user.create({
             data: {
-                username,
+                email,
                 password: hashedPassword,
                 name
             }
         });
         const userId = user.id;
 
-        const token = jwt.sign({ userId, username: user.username },
+        const token = jwt.sign({ userId, username: user.email},
             getJwtSecret(),
             { expiresIn: '7d' }
         );

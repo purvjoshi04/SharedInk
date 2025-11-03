@@ -1,7 +1,6 @@
 {
   "name": "http-backend",
   "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "scripts": {
     "build": "tsc -b",
@@ -14,9 +13,6 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@repo/common": "workspace:*",
     "@repo/db": "workspace:*",
