@@ -20,7 +20,7 @@ export const createUserSchema = z.object({
 });
 
 export const SigninSchema = z.object({
-    username: z.string().min(3).max(20),
+    email: z.email(),
     password: z.string()
         .min(8, { message: "Password must be at least 8 characters" })
         .refine((password) => /[A-Z]/.test(password), {
