@@ -1,6 +1,6 @@
 import { prisma } from '@repo/db';
 import { getJwtSecret, JWT_EXPIRY } from '@repo/common/config';
-import { createUserSchema, SigninSchema } from '@repo/common/types';
+import { CreateRoomSchema, createUserSchema, SigninSchema } from '@repo/common/types';
 import { Router, type Router as RouterType } from "express";
 import { userMiddleware } from "../middleware/middleware";
 import bcrypt from "bcrypt";
@@ -21,11 +21,10 @@ router.post("/signup", async (req, res) => {
             errors: formattedErrors
         });
     };
-    const { email, password, name } = requiredBody.data;
     try {
         const userExisted = await prisma.user.findFirst({
             where: {
-                email
+                email: requiredBody.data.email
             }
         });
         if (userExisted) {
@@ -34,17 +33,16 @@ router.post("/signup", async (req, res) => {
                 message: "Email already exists"
             });
         }
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(requiredBody.data.password, 10);
 
         const user = await prisma.user.create({
             data: {
-                email,
+                email: requiredBody.data.email,
                 password: hashedPassword,
-                name
+                name: requiredBody.data.name
             }
         });
         const userId = user.id;
-
         const token = jwt.sign({ userId, username: user.email },
             getJwtSecret(),
             { expiresIn: JWT_EXPIRY }
@@ -77,10 +75,9 @@ router.post("/signin", async (req, res) => {
                 errors: formattedErrors
             });
         };
-        const { email, password } = requiredBody.data;
         const user = await prisma.user.findUnique({
             where: {
-                email: email
+                email: requiredBody.data.email
             }
         });
         if (!user) {
@@ -89,7 +86,7 @@ router.post("/signin", async (req, res) => {
                 message: "Invalid email or password"
             });
         }
-        const passwordCompare = await bcrypt.compare(password, user.password as string);
+        const passwordCompare = await bcrypt.compare(requiredBody.data.password, user.password as string);
         if (!passwordCompare) {
             return res.status(401).json({
                 success: false,
@@ -120,6 +117,34 @@ router.post("/signin", async (req, res) => {
     }
 });
 
-router.post("/room", userMiddleware, (req, res) => {
+router.post("/room", userMiddleware, async (req, res) => {
+    try {
+        const requiredBody = CreateRoomSchema.safeParse(req.body);
+        if (!requiredBody.success) {
+            const formattedErrors = requiredBody.error.issues.map(issue => ({
+                field: issue.path.join('.'),
+                message: issue.message
+            }));
+            return res.status(400).json({
+                success: false,
+                message: "Invalid inputs",
+                errors: formattedErrors
+            });
+        };
+        const userId = req.userId;
 
-})
+        const room = await prisma.room.create({
+            data: {
+                slug: requiredBody.data.name,
+                adminId: userId,
+            }
+        });
+        res.json({
+            roomId: room.id
+        })
+    } catch (error) {
+        res.status(411).json({
+            message: "Room already exists with this name"
+        });
+    }
+});
