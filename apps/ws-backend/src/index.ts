@@ -1,4 +1,6 @@
+import { prisma } from '@repo/db';
 import { WebSocketServer } from "ws";
+import type { WebSocket } from 'ws';
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { getJwtSecret } from '@repo/common/config';
 
@@ -8,7 +10,34 @@ interface DecodedToken extends JwtPayload {
     userId: string;
 }
 
-wss.on('connection', (ws, req) => {
+interface User {
+    ws: WebSocket,
+    userId: string,
+    rooms: string[]
+}
+
+const users: User[] = [];
+
+function checkUser(token: string): string | null {
+    try {
+        const decoded = jwt.verify(token, getJwtSecret()) as DecodedToken;
+
+        if (typeof decoded === "string") {
+            return null;
+        }
+
+        if (decoded && typeof decoded === "object" && "userId" in decoded && typeof decoded.userId === "string") {
+            return decoded.userId;
+        }
+
+        return null;
+    } catch (error) {
+        console.error('JWT verification failed:', error);
+        return null;
+    }
+}
+
+wss.on('connection', (ws: WebSocket, req) => {
     const url = req.url;
     if (!url) {
         ws.close(1008, 'Missing URL');
@@ -29,25 +58,75 @@ wss.on('connection', (ws, req) => {
         return;
     }
 
-    try {
-        const decoded = jwt.verify(token, jwtSecret) as DecodedToken;
+    const userId = checkUser(token);
 
-        if (!decoded.userId) {
-            ws.close(1008, 'Invalid token payload');
-            return;
-        }
-        ws.on('message', (message) => {
-            console.log(`Received from user ${decoded.userId}:`, message);
-        });
-
-        ws.on('error', (error) => {
-            console.error(`WebSocket error for user ${decoded.userId}:`, error);
-        });
-        ws.send(JSON.stringify({ type: 'connected', userId: decoded.userId }));
-
-    } catch (error) {
-        console.error('JWT verification failed:', error);
+    if (!userId) {
         ws.close(1008, 'Invalid token');
         return;
     }
+
+    ws.send(JSON.stringify({ type: 'connected', userId }));
+
+    users.push({
+        userId,
+        rooms: [],
+        ws
+    });
+
+    ws.on('message', async (message) => {
+        const parsedData = JSON.parse(message.toString());
+
+        if (parsedData.type === "join_room") {
+            const user = users.find(x => x.ws === ws);
+            if (user && !user.rooms.includes(parsedData.roomId)) {
+                user.rooms.push(parsedData.roomId);
+            }
+        }
+
+        if (parsedData.type === "leave_room") {
+            const user = users.find(x => x.ws === ws);
+            if (!user) {
+                return;
+            }
+            user.rooms = user.rooms.filter(x => x !== parsedData.roomId);
+        }
+
+        if (parsedData.type === "chat") {
+            const roomId = parsedData.roomId;
+            const message = parsedData.message;
+
+            await prisma.chat.create({
+                data: {
+                    roomId,
+                    message,
+                    userId
+                }
+            })
+
+            users.forEach(user => {
+                if (user.rooms.includes(roomId)) {
+                    user.ws.send(JSON.stringify({
+                        type: "chat",
+                        message: message,
+                        roomId,
+                        userId
+                    }));
+                }
+            });
+        }
+    });
+
+    ws.on('error', (error) => {
+        console.error(`WebSocket error for user ${userId}:`, error);
+    });
+
+    ws.on('close', () => {
+        console.log(`User ${userId} disconnected`);
+        const index = users.findIndex(u => u.ws === ws);
+        if (index !== -1) {
+            users.splice(index, 1);
+        }
+    });
 });
+
+console.log('WebSocket server running on port 3002');

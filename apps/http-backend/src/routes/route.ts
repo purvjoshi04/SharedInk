@@ -148,3 +148,29 @@ router.post("/room", userMiddleware, async (req, res) => {
         });
     }
 });
+
+router.get("/chats/:roomId", async (req, res) => {
+    try {
+        const roomId = Number(req.params.roomId);
+        if (isNaN(roomId)) {
+            return res.status(400).json({ error: "Invalid room ID" });
+        }
+        
+        const messages = await prisma.chat.findMany({
+            where: {
+                roomId: roomId,
+            },
+            orderBy: {
+                id: "desc"
+            },
+            take: 50
+        });
+
+        res.json({
+            messages
+        });
+    } catch (error) {
+        console.error("Error fetching chats:", error);
+        res.status(500).json({ error: "Failed to fetch messages" });
+    }
+});
