@@ -47,11 +47,13 @@ router.post("/signup", async (req, res) => {
             getJwtSecret(),
             { expiresIn: JWT_EXPIRY }
         );
+        localStorage.setItem("token", token);
         return res.status(201).json({
             success: true,
             message: "You are signed up!",
             token
         });
+
     } catch (error) {
         console.error("Signup error:", error);
         return res.status(500).json({
@@ -98,6 +100,7 @@ router.post("/signin", async (req, res) => {
             getJwtSecret(),
             { expiresIn: JWT_EXPIRY }
         );
+        localStorage.setItem("token", token);
 
         return res.status(200).json({
             success: true,
@@ -155,7 +158,7 @@ router.get("/chats/:roomId", async (req, res) => {
         if (isNaN(roomId)) {
             return res.status(400).json({ error: "Invalid room ID" });
         }
-        
+
         const messages = await prisma.chat.findMany({
             where: {
                 roomId: roomId,
@@ -172,5 +175,30 @@ router.get("/chats/:roomId", async (req, res) => {
     } catch (error) {
         console.error("Error fetching chats:", error);
         res.status(500).json({ error: "Failed to fetch messages" });
+    }
+});
+
+router.get("/room/:slug", async (req, res) => {
+    try {
+        const slug = req.params.slug;
+
+        const room = await prisma.room.findFirst({
+            where: {
+                slug
+            }
+        });
+
+        if (!room) {
+            return res.status(404).json({ error: "Room not found" });
+        }
+
+        res.json({
+            id: room.id,
+            slug: room.slug,
+            adminId: room.adminId
+        });
+    } catch (error) {
+        console.error("Error fetching room:", error);
+        res.status(500).json({ error: "Failed to fetch room" });
     }
 });

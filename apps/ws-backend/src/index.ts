@@ -95,6 +95,7 @@ wss.on('connection', (ws: WebSocket, req) => {
             const roomId = parsedData.roomId;
             const message = parsedData.message;
 
+            // TODO: use queue over here for more async architecture
             await prisma.chat.create({
                 data: {
                     roomId,
