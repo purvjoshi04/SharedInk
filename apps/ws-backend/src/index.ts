@@ -1,6 +1,5 @@
 import { prisma } from '@repo/db';
-import { WebSocketServer } from "ws";
-import type { WebSocket } from 'ws';
+import { type WebSocket, WebSocketServer } from "ws";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { getJwtSecret } from '@repo/common/config';
 

@@ -47,7 +47,6 @@ router.post("/signup", async (req, res) => {
             getJwtSecret(),
             { expiresIn: JWT_EXPIRY }
         );
-        localStorage.setItem("token", token);
         return res.status(201).json({
             success: true,
             message: "You are signed up!",
@@ -100,7 +99,6 @@ router.post("/signin", async (req, res) => {
             getJwtSecret(),
             { expiresIn: JWT_EXPIRY }
         );
-        localStorage.setItem("token", token);
 
         return res.status(200).json({
             success: true,
