@@ -1,188 +1,96 @@
-"use client"
-import React, { useState, useMemo } from 'react';
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
-import { AuthPage } from '../components/AuthPage';
+import { AuthLayout } from '@/app/components/AuthLayout';
 import { Input } from '@repo/ui/input';
 import { Button } from '@repo/ui/button';
-import { MailIcon, LockIcon, UserIcon, ArrowRightIcon } from '@repo/ui/icons';
+import { useTheme } from '../components/ThemeProvider';
 
-export default function SignUp() {
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState("");
-    const [formData, setFormData] = useState({
-        name: '',
-        email: '',
-        password: '',
-        confirmPassword: ''
-    });
+export default function Signup() {
     const router = useRouter();
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const { isDark, toggleTheme } = useTheme();
+
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        if (!formData.name) newErrors.name = 'Name is required';
+        if (!formData.email) newErrors.email = 'Email is required';
+        else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
+        if (!formData.password) newErrors.password = 'Password is required';
+        if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
+        if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError("");
-
-        // Validate passwords match
-        if (formData.password !== formData.confirmPassword) {
-            setError("Passwords do not match");
-            return;
-        }
-
-        // Validate password strength
-        if (strengthScore < 2) {
-            setError("Please use a stronger password");
-            return;
-        }
-
-        setIsLoading(true);
-
-        try {
-            const response = await axios.post(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/signup`,
-                {
-                    username: formData.name,
-                    email: formData.email,
-                    password: formData.password
-                }
-            );
-
-            const { token, userId } = response.data;
-
-            // Store token in localStorage
-            localStorage.setItem("token", token);
-            localStorage.setItem("user", JSON.stringify({
-                id: userId,
-                username: formData.name,
-                email: formData.email
-            }));
-
-            // Redirect to rooms
-            router.push("/");
-        } catch (err: any) {
-            setError(err.response?.data?.error || "Sign up failed");
-        } finally {
-            setIsLoading(false);
-        }
+        if (!validate()) return;
+        setLoading(true);
+        setTimeout(() => {
+            setLoading(false);
+            router.push('/signin');
+        }, 1500);
     };
 
-    // Password strength logic
-    const strengthScore = useMemo(() => {
-        const pass = formData.password;
-        let score = 0;
-        if (!pass) return 0;
-        if (pass.length > 7) score += 1;
-        if (/[0-9]/.test(pass)) score += 1;
-        if (/[^A-Za-z0-9]/.test(pass)) score += 1;
-        if (/[A-Z]/.test(pass)) score += 1;
-        return score;
-    }, [formData.password]);
-
-    const strengthLabels = ['Enter Password', 'Weak', 'Fair', 'Good', 'Strong'];
-    const strengthColors = [
-        'bg-zinc-800',
-        'bg-red-500',
-        'bg-orange-500',
-        'bg-yellow-500',
-        'bg-emerald-500'
-    ];
-
     return (
-        <AuthPage
-            title="Create an account"
-            subtitle="Start sketching and collaborating in seconds"
-        >
-            <div className="space-y-6">
-                {error && (
-                    <div className="p-3 bg-red-900/50 text-red-200 rounded text-sm">
-                        {error}
-                    </div>
-                )}
+        <AuthLayout title="Create Account" subtitle="Start sketching your ideas today." onToggleTheme={toggleTheme} isDark={isDark}>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">
+                <Input
+                    label="Full Name"
+                    type="text"
+                    placeholder="John Doe"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    error={errors.name}
+                />
+                <Input
+                    label="Email Address"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    error={errors.email}
+                />
+                <Input
+                    label="Password"
+                    type="password"
+                    placeholder="Create a password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    error={errors.password}
+                />
+                <Input
+                    label="Confirm Password"
+                    type="password"
+                    placeholder="Confirm your password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    error={errors.confirmPassword}
+                />
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <Input
-                        label="Full Name"
-                        type="text"
-                        placeholder="John Doe"
-                        icon={<UserIcon className="h-4 w-4" />}
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        required
-                    />
+                <div className="flex items-start gap-2 mt-2">
+                    <input type="checkbox" id="terms" className="mt-1 w-4 h-4 text-primary border-black dark:border-gray-500 rounded focus:ring-primary" required />
+                    <label htmlFor="terms" className="text-sm text-gray-600 dark:text-gray-400 font-sans">
+                        I agree to the <a href="#" className="text-white hover:underline">Terms of Service</a> and <a href="#" className="text-white hover:underline">Privacy Policy</a>.
+                    </label>
+                </div>
 
-                    <Input
-                        label="Email"
-                        type="email"
-                        placeholder="name@example.com"
-                        icon={<MailIcon className="h-4 w-4" />}
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        required
-                    />
+                <Button type="submit" isLoading={loading} className="mt-2">
+                    Create Account
+                </Button>
 
-                    <div className="space-y-2">
-                        <Input
-                            label="Password"
-                            type="password"
-                            placeholder="••••••••"
-                            icon={<LockIcon className="h-4 w-4" />}
-                            value={formData.password}
-                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                            required
-                        />
-                        <div className="space-y-1.5">
-                            <div className="flex gap-1.5 h-1.5 w-full">
-                                {[1, 2, 3, 4].map((level) => (
-                                    <div
-                                        key={level}
-                                        className={`h-full flex-1 rounded-full transition-colors duration-300 ${strengthScore >= level ? strengthColors[strengthScore] : 'bg-zinc-800'}`}
-                                    />
-                                ))}
-                            </div>
-                            <p className={`text-xs font-medium text-right transition-colors ${strengthScore > 0 ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                                {strengthScore > 0 ? strengthLabels[strengthScore] : 'Password strength'}
-                            </p>
-                        </div>
-                    </div>
-
-                    <Input
-                        label="Confirm Password"
-                        type="password"
-                        placeholder="••••••••"
-                        icon={<LockIcon className="h-4 w-4" />}
-                        value={formData.confirmPassword}
-                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                        required
-                    />
-
-                    <div className="flex items-start gap-2 pt-2">
-                        <input
-                            type="checkbox"
-                            id="terms"
-                            className="mt-1 h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-white focus:ring-white focus:ring-offset-zinc-950 accent-white"
-                            required
-                        />
-                        <label htmlFor="terms" className="text-sm text-zinc-500">
-                            I agree to the <a href="#" className="font-medium text-white hover:underline">Terms of Service</a> and <a href="#" className="font-medium text-white hover:underline">Privacy Policy</a>.
-                        </label>
-                    </div>
-
-                    <Button type="submit" fullWidth isLoading={isLoading} className="group" variant={'primary'}>
-                        Create Account
-                        <ArrowRightIcon className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                    </Button>
-                </form>
-
-                <div className="text-center text-sm">
-                    <span className="text-zinc-400">Already have an account? </span>
-                    <Link
-                        href="/signin"
-                        className="font-bold text-white hover:underline underline-offset-4 decoration-zinc-600 hover:decoration-white transition-all"
-                    >
+                <p className="text-center font-sans text-sm text-gray-600 dark:text-gray-400 mt-4">
+                    Already have an account?{' '}
+                    <Link href="/signin" className="font-hand font-bold text-primary hover:underline text-lg">
                         Sign in
                     </Link>
-                </div>
-            </div>
-        </AuthPage>
+                </p>
+            </form>
+        </AuthLayout>
     );
-}
+};
