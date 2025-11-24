@@ -97,7 +97,7 @@ wss.on('connection', (ws: WebSocket, req) => {
             // TODO: use queue over here for more async architecture
             await prisma.chat.create({
                 data: {
-                    roomId,
+                    roomId: Number(parsedData.roomId),
                     message,
                     userId
                 }
@@ -121,7 +121,6 @@ wss.on('connection', (ws: WebSocket, req) => {
     });
 
     ws.on('close', () => {
-        console.log(`User ${userId} disconnected`);
         const index = users.findIndex(u => u.ws === ws);
         if (index !== -1) {
             users.splice(index, 1);

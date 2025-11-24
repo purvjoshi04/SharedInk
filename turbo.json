@@ -20,6 +20,9 @@
     "db:deploy": {
       "cache": false
     },
+    "db:studio": {
+      "cache": false
+    },
     "build": {
       "dependsOn": ["^build", "^db:generate"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
