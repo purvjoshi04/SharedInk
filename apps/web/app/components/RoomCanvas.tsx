@@ -5,7 +5,7 @@ import Canvas from "./Canvas";
 
 export default function RoomCanvas({ roomId }: { roomId: string }) {
     const { socket, isConnected, error } = useWebSocket(
-        `${process.env.NEXT_PUBLIC_WS_URL}?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI5N2M0NDE0NS05Mjg1LTRkZWItOTIwYy0yMjJmZTYxMzQwMzUiLCJlbWFpbCI6InRlc3QxQGdtYWlsLmNvbSIsImlhdCI6MTc2Mzk3OTUwNywiZXhwIjoxNzY0NTg0MzA3fQ._OqfeAnM4HithVetQjApmtzK-t3Ms-MUNjtxuudnGgc`,
+        `${process.env.NEXT_PUBLIC_WS_URL}?token=${token}`,
         roomId
     );
 
