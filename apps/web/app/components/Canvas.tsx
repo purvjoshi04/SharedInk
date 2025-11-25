@@ -1,5 +1,6 @@
 import initDraw from "@/draw";
 import { useEffect, useRef } from "react";
+import Navbar from "./Navbar";
 
 export default function Canvas({ 
     roomId, 
@@ -30,6 +31,7 @@ export default function Canvas({
     
     return (
         <div>
+            <Navbar />
             <canvas ref={canvasRef} className="block"></canvas>
         </div>
     );

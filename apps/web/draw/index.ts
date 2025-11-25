@@ -27,7 +27,7 @@ export default async function initDraw(canvas: HTMLCanvasElement, roomId: string
 
         if (message.type === "chat") {
             const parsedShape = JSON.parse(message.message);
-            existingShapes.push(parsedShape.shape);
+            existingShapes.push(parsedShape);
             clearCanvas(existingShapes, canvas, ctx);
         }
     };
