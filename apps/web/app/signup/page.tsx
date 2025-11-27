@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AuthLayout } from '@/app/components/AuthLayout';
+import { AuthLayout } from '@/components/AuthLayout';
 import { Input } from '@repo/ui/input';
 import { Button } from '@repo/ui/button';
-import { useTheme } from '../components/ThemeProvider';
+import { useTheme } from '../../components/ThemeProvider';
 
 export default function Signup() {
     const router = useRouter();

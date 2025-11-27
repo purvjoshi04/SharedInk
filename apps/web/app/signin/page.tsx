@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { Input } from '@repo/ui/input';
 import { Button } from '@repo/ui/button'
-import { useTheme } from '@/app/components/ThemeProvider';
-import { AuthLayout } from '@/app/components/AuthLayout';
+import { useTheme } from '@/components/ThemeProvider';
+import { AuthLayout } from '@/components/AuthLayout';
 
 export default function SigninPage() {
     const router = useRouter();
