@@ -6,7 +6,7 @@ export enum ShapeTool {
     Rectangle = "rect",
     Circle = "circle",
     Arrow = "arrow",
-    Pencile = "pencile"
+    Pencil = "pencil"
 }
 
 interface NavbarProps {
@@ -20,7 +20,7 @@ export default function Navbar({ selectedTool, onToolChange }: NavbarProps) {
         { icon: <Square size={18} />, label: "Rectangle", tool: ShapeTool.Rectangle },
         { icon: <Circle size={18} />, label: "Circle", tool: ShapeTool.Circle },
         { icon: <MoveRight size={18} />, label: "Arrow", tool: ShapeTool.Arrow },
-        {icon: <PencilIcon size={18}/>, label: "Pencile", tool: ShapeTool.Pencile}
+        {icon: <PencilIcon size={18}/>, label: "Pencile", tool: ShapeTool.Pencil}
     ]
 
     return (

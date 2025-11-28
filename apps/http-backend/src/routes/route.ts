@@ -162,9 +162,8 @@ router.get("/chats/:roomId", async (req, res) => {
                 roomId: roomId,
             },
             orderBy: {
-                id: "desc"
-            },
-            take: 50
+                id: "asc"
+            }
         });
 
         res.json({

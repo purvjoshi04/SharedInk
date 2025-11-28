@@ -11,6 +11,9 @@ export type Shape = {
     radius: number;
 } | {
     type: "pencil";
+    points: { x: number; y: number }[];
+} | {
+    type: "arrow";
     startX: number;
     startY: number;
     endX: number;

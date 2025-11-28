@@ -14,6 +14,7 @@ export async function getExistingShapes(roomId: string): Promise<Shape[]> {
         }
 
         const shapes: Shape[] = [];
+        const validTypes: Shape['type'][] = ['rect', 'circle', 'pencil', 'arrow'];
 
         for (const msg of res.data.messages) {
             try {
@@ -22,10 +23,10 @@ export async function getExistingShapes(roomId: string): Promise<Shape[]> {
                 const parsed = JSON.parse(msg.message);
                 const shapeData = parsed.shape || parsed;
 
-                if (shapeData && typeof shapeData === 'object' && shapeData.type) {
-                    if (shapeData.type === 'rect' || shapeData.type === 'circle') {
-                        shapes.push(shapeData as Shape);
-                    }
+                if (shapeData &&
+                    typeof shapeData === 'object' &&
+                    validTypes.includes(shapeData.type)) {
+                    shapes.push(shapeData as Shape);
                 }
             } catch (e) {
                 continue;
