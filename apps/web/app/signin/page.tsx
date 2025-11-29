@@ -77,7 +77,7 @@ export default function SigninPage() {
                     Sign In
                 </Button>
 
-                <div className="flex items-center my-8">
+                <div className="flex items-center">
                     <div className="flex-1 border-t border-gray-700"></div>
                     <span className="px-4 text-sm font-medium text-gray-500 uppercase tracking-wider">
                         Or continue with

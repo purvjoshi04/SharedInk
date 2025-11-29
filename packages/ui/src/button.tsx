@@ -19,7 +19,7 @@ export function Button({
   className = '',
   ...props
 }: ButtonProps) {
-  const baseStyles = "rounded-lg p-2 relative flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-hand text-lg transition-all duration-200 disabled:opacity-70 cursor-pointer active:translate-y-[2px] active:shadow-none";
+  const baseStyles = "rounded-lg p-2.5 relative flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-hand text-lg transition-all duration-200 disabled:opacity-70 cursor-pointer active:translate-y-[2px] active:shadow-none";
 
   const variants = {
     primary: "bg-primary text-white border-2 border-black dark:border-gray-600 shadow-hand dark:shadow-hand-dark hover:bg-primary-hover hover:shadow-hand-hover dark:hover:shadow-hand-hover-dark",
