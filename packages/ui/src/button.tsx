@@ -3,7 +3,7 @@
 import { ReactNode, ButtonHTMLAttributes } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'outline' | 'ghost';
+  variant?: 'primary' | 'outline' | 'ghost' | 'custom';
   isLoading?: boolean;
   icon?: ReactNode;
   children?: ReactNode;
@@ -24,7 +24,8 @@ export function Button({
   const variants = {
     primary: "bg-primary text-white border-2 border-black dark:border-gray-600 shadow-hand dark:shadow-hand-dark hover:bg-primary-hover hover:shadow-hand-hover dark:hover:shadow-hand-hover-dark",
     outline: "bg-white dark:bg-transparent text-gray-900 dark:text-white border-2 border-black dark:border-gray-600 shadow-hand dark:shadow-hand-dark hover:bg-gray-50 dark:hover:bg-gray-800 hover:shadow-hand-hover dark:hover:shadow-hand-hover-dark",
-    ghost: "bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
+    ghost: "bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100/50 dark:hover:bg-gray-800/50",
+    custom: ""
   };
 
   return (

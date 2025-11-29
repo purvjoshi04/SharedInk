@@ -6,12 +6,10 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { Input } from '@repo/ui/input';
 import { Button } from '@repo/ui/button'
-import { useTheme } from '@/components/ThemeProvider';
 import { AuthLayout } from '@/components/AuthLayout';
 
 export default function SigninPage() {
     const router = useRouter();
-    const { isDark, toggleTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({ email: '', password: '' });
@@ -48,8 +46,6 @@ export default function SigninPage() {
         <AuthLayout
             title="Welcome Back!"
             subtitle="Sign in to your whiteboard workspace."
-            isDark={isDark}
-            onToggleTheme={toggleTheme}
         >
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                 <Input
@@ -81,20 +77,16 @@ export default function SigninPage() {
                     Sign In
                 </Button>
 
-                <div className="relative my-4">
-                    <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t border-gray-300 dark:border-gray-600"></span>
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-white dark:bg-dark-card px-2 text-gray-500 dark:text-gray-400 font-sans transition-colors">
-                            Or continue with
-                        </span>
-                    </div>
+                <div className="flex items-center my-8">
+                    <div className="flex-1 border-t border-gray-700"></div>
+                    <span className="px-4 text-sm font-medium text-gray-500 uppercase tracking-wider">
+                        Or continue with
+                    </span>
+                    <div className="flex-1 border-t border-gray-700"></div>
                 </div>
 
                 <Button
                     type="button"
-                    variant="outline"
                     onClick={() => console.log('Google login')}
                     icon={
                         <svg className="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24">

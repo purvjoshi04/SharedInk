@@ -68,15 +68,6 @@ function ToolButton({
             aria-pressed={activated}
         >
             {icon}
-
-            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 
-                            px-3 py-1.5 bg-dark-card text-white text-xs rounded-lg 
-                            border border-dark-border
-                            opacity-0 group-hover:opacity-100 
-                            transition-opacity whitespace-nowrap pointer-events-none
-                            shadow-lg">
-                {label}
-            </span>
         </button>
     )
 }

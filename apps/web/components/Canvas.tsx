@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useRef, useState } from "react";
 import Navbar, { ShapeTool } from "./Navbar";
 import { Game } from "@/draw/game";
@@ -6,8 +7,8 @@ export default function Canvas({
     roomId, 
     socket 
 }: { 
-    roomId: string;
-    socket: WebSocket | null;
+    roomId?: string;
+    socket?: WebSocket | null;
 }) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const gameRef = useRef<Game | null>(null);
@@ -15,7 +16,7 @@ export default function Canvas({
     
     useEffect(() => {
         if (canvasRef.current && socket) {
-            const game = new Game(canvasRef.current, roomId, socket);
+            const game = new Game(canvasRef.current, roomId!, socket);
             gameRef.current = game;
             
             return () => {

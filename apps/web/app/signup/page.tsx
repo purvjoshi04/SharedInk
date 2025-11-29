@@ -6,14 +6,12 @@ import { useRouter } from 'next/navigation';
 import { AuthLayout } from '@/components/AuthLayout';
 import { Input } from '@repo/ui/input';
 import { Button } from '@repo/ui/button';
-import { useTheme } from '../../components/ThemeProvider';
 
 export default function Signup() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const { isDark, toggleTheme } = useTheme();
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
@@ -38,7 +36,7 @@ export default function Signup() {
     };
 
     return (
-        <AuthLayout title="Create Account" subtitle="Start sketching your ideas today." onToggleTheme={toggleTheme} isDark={isDark}>
+        <AuthLayout title="Create Account" subtitle="Start sketching your ideas today.">
             <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">
                 <Input
                     label="Full Name"
