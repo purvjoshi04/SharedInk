@@ -49,8 +49,8 @@ export default function Home() {
 
         <motion.a
           whileHover={{ scale: 1.05 }}
-          href="#"
           className="px-8 py-4 border border-white rounded-2xl text-xl font-medium hover:bg-white hover:text-black transition"
+          onClick={() => router.push('/signin')}
         >
           Start Drawing
         </motion.a>
@@ -67,12 +67,7 @@ export default function Home() {
       </section>
       <section className="relative z-10 text-center mt-32 mb-32 px-6">
         <h3 className="text-4xl font-semibold mb-6">Ready to Sketch Your Ideas?</h3>
-        <a
-          href="#"
-          className="px-8 py-4 border border-white rounded-2xl text-xl font-medium hover:bg-white hover:text-black transition"
-        >
-          Launch SharedInk
-        </a>
+        <h2 className="text-2xl font-semibold mb-6">Start Today</h2>
       </section>
       <footer className="relative z-10 text-center py-6 opacity-60 text-sm">
         © {new Date().getFullYear()} SharedInk.
