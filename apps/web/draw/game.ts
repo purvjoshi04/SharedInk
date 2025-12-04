@@ -76,7 +76,7 @@ export class Game {
         const dx = toX - fromX;
         const dy = toY - fromY;
         const angle = Math.atan2(dy, dx);
-        const headlen = 10;
+        const headlen = 12;
         this.ctx.beginPath();
         this.ctx.moveTo(fromX, fromY);
         this.ctx.lineTo(toX, toY);
@@ -106,7 +106,6 @@ export class Game {
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
         this.ctx.stroke();
-        this.ctx.lineWidth = 1;
     }
 
     initMouseHandlers() {
