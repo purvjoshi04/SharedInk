@@ -54,7 +54,8 @@ export default function SigninPage() {
                 }
             );
 
-            const token = response.data.token;
+            const { token, roomId } = response.data;
+            console.log(roomId)
             localStorage.setItem('token', token);
 
             toast.success('Login successful!', {
@@ -63,7 +64,7 @@ export default function SigninPage() {
             });
 
             setTimeout(() => {
-                router.push('/dashboard');
+                router.push(`/canvas/${roomId}`);
             }, 1500);
 
         } catch (error) {

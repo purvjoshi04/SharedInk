@@ -6,6 +6,10 @@ import { userMiddleware } from "../middleware/middleware";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
+(BigInt.prototype as any).toJSON = function() {
+    return this.toString();
+};
+
 export const router: RouterType = Router();
 
 router.post("/signup", async (req, res) => {
@@ -47,10 +51,25 @@ router.post("/signup", async (req, res) => {
             getJwtSecret(),
             { expiresIn: JWT_EXPIRY }
         );
+        let room = await prisma.room.findFirst({
+            where: {
+                adminId: user.id
+            }
+        });
+
+        if (!room) {
+            room = await prisma.room.create({
+                data: {
+                    slug: `canvas-${user.id}-${Date.now()}`,
+                    adminId: user.id,
+                }
+            });
+        }
         return res.status(201).json({
             success: true,
             message: "You are signed up!",
-            token
+            token,
+            roomId: room.id
         });
 
     } catch (error) {
@@ -100,6 +119,21 @@ router.post("/signin", async (req, res) => {
             { expiresIn: JWT_EXPIRY }
         );
 
+        let room = await prisma.room.findFirst({
+            where: {
+                adminId: user.id
+            }
+        });
+
+        if (!room) {
+            room = await prisma.room.create({
+                data: {
+                    slug: `canvas-${user.id}-${Date.now()}`,
+                    adminId: user.id,
+                }
+            });
+        }
+
         return res.status(200).json({
             success: true,
             message: "Signed in successfully",
@@ -107,7 +141,8 @@ router.post("/signin", async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email
-            }
+            },
+            roomId: room.id
         })
     } catch (error) {
         console.error("Signin error:", error);
@@ -152,11 +187,7 @@ router.post("/room", userMiddleware, async (req, res) => {
 
 router.get("/chats/:roomId", async (req, res) => {
     try {
-        const roomId = Number(req.params.roomId);
-        if (isNaN(roomId)) {
-            return res.status(400).json({ error: "Invalid room ID" });
-        }
-
+        const roomId = req.params.roomId;
         const messages = await prisma.chat.findMany({
             where: {
                 roomId: roomId,
@@ -166,8 +197,16 @@ router.get("/chats/:roomId", async (req, res) => {
             }
         });
 
+        const serializedMessages = messages.map(msg => ({
+            id: msg.id.toString(),
+            message: msg.message,
+            userId: msg.userId,
+            roomId: msg.roomId,
+            createdAt: msg.createdAt.toISOString()
+        }));
+
         res.json({
-            messages
+            messages: serializedMessages
         });
     } catch (error) {
         console.error("Error fetching chats:", error);

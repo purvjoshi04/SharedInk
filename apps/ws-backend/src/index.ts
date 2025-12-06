@@ -31,7 +31,6 @@ function checkUser(token: string): string | null {
 
         return null;
     } catch (error) {
-        console.error('JWT verification failed:', error);
         return null;
     }
 }
@@ -73,56 +72,194 @@ wss.on('connection', (ws: WebSocket, req) => {
     });
 
     ws.on('message', async (message) => {
-        const parsedData = JSON.parse(message.toString());
+        try {
+            const parsedData = JSON.parse(message.toString());
 
-        if (parsedData.type === "join_room") {
-            const user = users.find(x => x.ws === ws);
-            if (user && !user.rooms.includes(parsedData.roomId)) {
-                user.rooms.push(parsedData.roomId);
-            }
-        }
+            // JOIN ROOM
+            if (parsedData.type === "join_room") {
+                const { roomId } = parsedData;
+                
+                // Verify room exists
+                const room = await prisma.room.findUnique({
+                    where: { id: roomId }
+                });
 
-        if (parsedData.type === "leave_room") {
-            const user = users.find(x => x.ws === ws);
-            if (!user) {
-                return;
-            }
-            user.rooms = user.rooms.filter(x => x !== parsedData.roomId);
-        }
-
-        if (parsedData.type === "chat") {
-            const roomId = parsedData.roomId;
-            const message = parsedData.message;
-
-            // TODO: use queue over here for more async architecture
-            await prisma.chat.create({
-                data: {
-                    roomId: Number(parsedData.roomId),
-                    message,
-                    userId
+                if (!room) {
+                    ws.send(JSON.stringify({ type: "error", error: "Room not found" }));
+                    return;
                 }
-            })
 
-            users.forEach(user => {
-                if (user.rooms.includes(roomId)) {
-                    user.ws.send(JSON.stringify({
-                        type: "chat",
-                        message: message,
-                        roomId,
+                const user = users.find(x => x.ws === ws);
+                if (user && !user.rooms.includes(roomId)) {
+                    user.rooms.push(roomId);
+                    
+                    // Send confirmation
+                    ws.send(JSON.stringify({ 
+                        type: "room_joined", 
+                        roomId 
+                    }));
+
+                    // Notify other users in the room
+                    users.forEach(u => {
+                        if (u.userId !== userId && u.rooms.includes(roomId)) {
+                            u.ws.send(JSON.stringify({
+                                type: "user_joined",
+                                roomId,
+                                userId
+                            }));
+                        }
+                    });
+                }
+            }
+
+            // LEAVE ROOM
+            if (parsedData.type === "leave_room") {
+                const { roomId } = parsedData;
+                const user = users.find(x => x.ws === ws);
+                if (!user) {
+                    return;
+                }
+                user.rooms = user.rooms.filter(x => x !== roomId);
+
+                users.forEach(u => {
+                    if (u.userId !== userId && u.rooms.includes(roomId)) {
+                        u.ws.send(JSON.stringify({
+                            type: "user_left",
+                            roomId,
+                            userId
+                        }));
+                    }
+                });
+            }
+
+            if (parsedData.type === "chat") {
+                const { roomId, message: rawMessage } = parsedData;
+                const message = rawMessage?.trim();
+
+                if (!roomId || !message) {
+                    ws.send(JSON.stringify({ type: "error", error: "Invalid message" }));
+                    return;
+                }
+
+                const room = await prisma.room.findUnique({
+                    where: { id: roomId }
+                });
+
+                if (!room) {
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        error: "Room not found"
+                    }));
+                    return;
+                }
+
+                const chat = await prisma.chat.create({
+                    data: {
+                        roomId: room.id,
+                        message,
                         userId
+                    }
+                });
+
+                users.forEach(user => {
+                    if (user.rooms.includes(roomId)) {
+                        user.ws.send(JSON.stringify({
+                            type: "chat",
+                            chatId: chat.id,
+                            roomId: roomId,
+                            message: chat.message,
+                            userId: chat.userId,
+                            createdAt: chat.createdAt
+                        }));
+                    }
+                });
+            }
+
+            if (parsedData.type === "canvas_update") {
+                const { roomId, canvasData } = parsedData;
+
+                if (!roomId || !canvasData) {
+                    ws.send(JSON.stringify({ type: "error", error: "Invalid canvas data" }));
+                    return;
+                }
+
+                const room = await prisma.room.findUnique({
+                    where: { id: roomId }
+                });
+
+                if (!room) {
+                    ws.send(JSON.stringify({ type: "error", error: "Room not found" }));
+                    return;
+                }
+
+                users.forEach(user => {
+                    if (user.userId !== userId && user.rooms.includes(roomId)) {
+                        user.ws.send(JSON.stringify({
+                            type: "canvas_update",
+                            roomId,
+                            canvasData,
+                            userId
+                        }));
+                    }
+                });
+            }
+
+            if (parsedData.type === "request_canvas_state") {
+                const { roomId } = parsedData;
+                const otherUser = users.find(u => 
+                    u.userId !== userId && 
+                    u.rooms.includes(roomId)
+                );
+
+                if (otherUser) {
+                    otherUser.ws.send(JSON.stringify({
+                        type: "send_canvas_state",
+                        roomId,
+                        requesterId: userId
                     }));
                 }
-            });
+            }
+            if (parsedData.type === "canvas_state") {
+                const { roomId, canvasData, requesterId } = parsedData;
+                const requester = users.find(u => u.userId === requesterId);
+                if (requester) {
+                    requester.ws.send(JSON.stringify({
+                        type: "canvas_state",
+                        roomId,
+                        canvasData
+                    }));
+                }
+            }
+
+        } catch (error) {
+            ws.send(JSON.stringify({ 
+                type: "error", 
+                error: "Failed to process message" 
+            }));
         }
     });
 
     ws.on('error', (error) => {
-        console.error(`WebSocket error for user ${userId}:`, error);
+
     });
 
     ws.on('close', () => {
         const index = users.findIndex(u => u.ws === ws);
         if (index !== -1) {
+            const user = users[index];
+            
+            user!.rooms.forEach(roomId => {
+                users.forEach(u => {
+                    if (u.userId !== userId && u.rooms.includes(roomId)) {
+                        u.ws.send(JSON.stringify({
+                            type: "user_left",
+                            roomId,
+                            userId
+                        }));
+                    }
+                });
+            });
+            
             users.splice(index, 1);
         }
     });

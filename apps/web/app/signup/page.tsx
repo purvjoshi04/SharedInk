@@ -50,7 +50,7 @@ export default function Signup() {
                 password: formData.password
             });
 
-            const token = response.data.token;
+            const { token, roomId } = response.data;
             localStorage.setItem('token', token);
 
             toast.success('Singup successful!', {
@@ -58,9 +58,9 @@ export default function Signup() {
                 duration: 1500,
             });
             setTimeout(() => {
-                router.push('/dashboard');
+                router.push(`/canvas/${roomId}`);
             }, 1500);
-            
+
         } catch (error) {
             setLoading(false);
 
@@ -199,11 +199,11 @@ export default function Signup() {
                 </div>
 
                 <div className="flex items-start gap-2 mt-2">
-                    <input 
-                        type="checkbox" 
-                        id="terms" 
-                        className="mt-1 w-4 h-4 text-primary border-black dark:border-gray-500 rounded focus:ring-primary" 
-                        required 
+                    <input
+                        type="checkbox"
+                        id="terms"
+                        className="mt-1 w-4 h-4 text-primary border-black dark:border-gray-500 rounded focus:ring-primary"
+                        required
                     />
                     <label htmlFor="terms" className="text-sm text-gray-600 dark:text-gray-400 font-sans">
                         I agree to the{' '}

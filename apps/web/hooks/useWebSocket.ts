@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export function useWebSocket(url: string, roomId: string) {
+export function useWebSocket(url: string | null, roomId: string) {
     const [socket, setSocket] = useState<WebSocket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const [error, setError] = useState<Event | null>(null);
@@ -10,7 +10,7 @@ export function useWebSocket(url: string, roomId: string) {
         let reconnectTimeout: NodeJS.Timeout;
 
         const connect = () => {
-            ws = new WebSocket(url);
+            ws = new WebSocket(url as string);
 
             ws.onopen = () => {
                 setSocket(ws);
