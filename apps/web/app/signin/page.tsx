@@ -55,7 +55,6 @@ export default function SigninPage() {
             );
 
             const { token, roomId } = response.data;
-            console.log(roomId)
             localStorage.setItem('token', token);
 
             toast.success('Login successful!', {

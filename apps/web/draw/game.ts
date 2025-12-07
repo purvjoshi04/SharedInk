@@ -83,7 +83,6 @@ export class Game {
                 }
                 
                 if (message.type === "send_canvas_state" && message.roomId === this.roomId) {
-                    console.log("Sending canvas state to requester:", message.requesterId);
                     this.socket.send(JSON.stringify({
                         type: "canvas_state",
                         roomId: this.roomId,
@@ -93,7 +92,6 @@ export class Game {
                 }
                 
                 if (message.type === "canvas_state" && message.roomId === this.roomId) {
-                    console.log("Received canvas state:", message.canvasData);
                     if (message.canvasData && Array.isArray(message.canvasData) && message.canvasData.length > 0) {
                         const existingShapesSet = new Set(
                             this.existingShapes.map(s => JSON.stringify(s))
