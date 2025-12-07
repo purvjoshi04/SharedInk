@@ -16,6 +16,18 @@ export class Game {
     private currentPencilStroke: { x: number; y: number }[] = [];
     private selectedTool: ShapeTool = ShapeTool.Rectangle;
     private cleanupFunctions: (() => void)[] = [];
+    private messageHandler: ((event: MessageEvent) => void) | null = null;
+    private cameraX = 0;
+    private cameraY = 0;
+    private scale = 1;
+    private isPanning = false;
+    private panStartX = 0;
+    private panStartY = 0;
+    private lastPanX = 0;
+    private lastPanY = 0;
+    private readonly MIN_SCALE = 0.1;
+    private readonly MAX_SCALE = 5;
+    private readonly ZOOM_SENSITIVITY = 0.009;
 
     constructor(canvas: HTMLCanvasElement, roomId: string, socket: WebSocket) {
         this.canvas = canvas;
@@ -24,10 +36,11 @@ export class Game {
         this.roomId = roomId;
         this.socket = socket;
         this.clicked = false;
-        this.init();
         this.initHandlers();
+        this.init();
         this.initMouseHandlers();
         this.initResizeCanvas();
+        this.initInfiniteCanvas();
     }
 
     setTool(tool: ShapeTool) {
@@ -37,22 +50,172 @@ export class Game {
     async init() {
         this.existingShapes = await getExistingShapes(this.roomId);
         this.clearCanvas();
+        
+        this.socket.send(JSON.stringify({
+            type: "join_room",
+            roomId: this.roomId
+        }));
+        
+        setTimeout(() => {
+            this.socket.send(JSON.stringify({
+                type: "request_canvas_state",
+                roomId: this.roomId
+            }));
+        }, 200);
     }
 
     initHandlers() {
-        this.socket.onmessage = (event) => {
-            const message = JSON.parse(event.data);
+        this.messageHandler = (event: MessageEvent) => {
+            try {
+                const message = JSON.parse(event.data);
 
-            if (message.type === "chat") {
-                const parsedShape = JSON.parse(message.message);
-                this.existingShapes.push(parsedShape);
+                if (message.type === "chat" && message.roomId === this.roomId) {
+                    const parsedShape = JSON.parse(message.message);
+                    
+                    const shapeExists = this.existingShapes.some(s => 
+                        JSON.stringify(s) === JSON.stringify(parsedShape)
+                    );
+                    
+                    if (!shapeExists) {
+                        this.existingShapes.push(parsedShape);
+                        this.clearCanvas();
+                    }
+                }
+                
+                if (message.type === "send_canvas_state" && message.roomId === this.roomId) {
+                    console.log("Sending canvas state to requester:", message.requesterId);
+                    this.socket.send(JSON.stringify({
+                        type: "canvas_state",
+                        roomId: this.roomId,
+                        canvasData: this.existingShapes,
+                        requesterId: message.requesterId
+                    }));
+                }
+                
+                if (message.type === "canvas_state" && message.roomId === this.roomId) {
+                    console.log("Received canvas state:", message.canvasData);
+                    if (message.canvasData && Array.isArray(message.canvasData) && message.canvasData.length > 0) {
+                        const existingShapesSet = new Set(
+                            this.existingShapes.map(s => JSON.stringify(s))
+                        );
+                        
+                        message.canvasData.forEach((shape: Shape) => {
+                            const shapeStr = JSON.stringify(shape);
+                            if (!existingShapesSet.has(shapeStr)) {
+                                this.existingShapes.push(shape);
+                                existingShapesSet.add(shapeStr);
+                            }
+                        });
+                        
+                        this.clearCanvas();
+                    }
+                }
+            } catch (error) {
+                console.error("Error handling WebSocket message:", error);
+            }
+        };
+
+        this.socket.addEventListener("message", this.messageHandler);
+        
+        this.cleanupFunctions.push(() => {
+            if (this.messageHandler) {
+                this.socket.removeEventListener("message", this.messageHandler);
+            }
+        });
+    }
+
+    initInfiniteCanvas() {
+        const handleWheel = (e: WheelEvent) => {
+            e.preventDefault();
+            
+            const rect = this.canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const worldX = (mouseX - this.cameraX) / this.scale;
+            const worldY = (mouseY - this.cameraY) / this.scale;
+            const zoomFactor = e.deltaY * this.ZOOM_SENSITIVITY;
+            const newScale = Math.min(
+                Math.max(this.scale * (1 - zoomFactor), this.MIN_SCALE),
+                this.MAX_SCALE
+            );
+            
+            this.cameraX = mouseX - worldX * newScale;
+            this.cameraY = mouseY - worldY * newScale;
+            this.scale = newScale;
+            
+            this.clearCanvas();
+        };
+        
+        const handleMouseDown = (e: MouseEvent) => {
+            if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+                e.preventDefault();
+                this.isPanning = true;
+                this.panStartX = e.clientX;
+                this.panStartY = e.clientY;
+                this.lastPanX = this.cameraX;
+                this.lastPanY = this.cameraY;
+                this.canvas.style.cursor = 'grabbing';
+            }
+        };
+        
+        const handleMouseMove = (e: MouseEvent) => {
+            if (this.isPanning) {
+                e.preventDefault();
+                const dx = e.clientX - this.panStartX;
+                const dy = e.clientY - this.panStartY;
+                this.cameraX = this.lastPanX + dx;
+                this.cameraY = this.lastPanY + dy;
                 this.clearCanvas();
             }
+        };
+        
+        const handleMouseUp = (e: MouseEvent) => {
+            if (e.button === 1 || (e.button === 0 && this.isPanning)) {
+                this.isPanning = false;
+                this.canvas.style.cursor = 'default';
+            }
+        };
+        
+        const preventContextMenu = (e: MouseEvent) => {
+            if (e.button === 1) {
+                e.preventDefault();
+            }
+        };
+        
+        this.canvas.addEventListener('wheel', handleWheel, { passive: false });
+        this.canvas.addEventListener('mousedown', handleMouseDown);
+        this.canvas.addEventListener('mousemove', handleMouseMove);
+        this.canvas.addEventListener('mouseup', handleMouseUp);
+        this.canvas.addEventListener('contextmenu', preventContextMenu);
+        
+        this.cleanupFunctions.push(() => {
+            this.canvas.removeEventListener('wheel', handleWheel);
+            this.canvas.removeEventListener('mousedown', handleMouseDown);
+            this.canvas.removeEventListener('mousemove', handleMouseMove);
+            this.canvas.removeEventListener('mouseup', handleMouseUp);
+            this.canvas.removeEventListener('contextmenu', preventContextMenu);
+        });
+    }
+
+    private screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
+        return {
+            x: (screenX - this.cameraX) / this.scale,
+            y: (screenY - this.cameraY) / this.scale
+        };
+    }
+
+    private worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
+        return {
+            x: worldX * this.scale + this.cameraX,
+            y: worldY * this.scale + this.cameraY
         };
     }
 
     clearCanvas() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.save();
+        this.ctx.translate(this.cameraX, this.cameraY);
+        this.ctx.scale(this.scale, this.scale);
 
         this.ctx.strokeStyle = "rgba(255, 255, 255, 1)";
         this.ctx.fillStyle = "rgba(255, 255, 255, 1)";
@@ -70,6 +233,8 @@ export class Game {
                 this.drawArrow(shape.startX, shape.startY, shape.endX, shape.endY);
             }
         });
+        
+        this.ctx.restore();
     }
 
     private drawArrow(fromX: number, fromY: number, toX: number, toY: number) {
@@ -110,12 +275,17 @@ export class Game {
 
     initMouseHandlers() {
         const handleMouseDown = (e: MouseEvent) => {
+            if (this.isPanning || e.button === 1 || e.shiftKey) return;
             if (this.selectedTool === ShapeTool.Pointer) return;
 
             this.clicked = true;
             const rect = this.canvas.getBoundingClientRect();
-            this.startX = e.clientX - rect.left;
-            this.startY = e.clientY - rect.top;
+            const screenX = e.clientX - rect.left;
+            const screenY = e.clientY - rect.top;
+            const world = this.screenToWorld(screenX, screenY);
+            this.startX = world.x;
+            this.startY = world.y;
+            
             if (this.selectedTool === ShapeTool.Pencil) {
                 this.currentPencilStroke = [{ x: this.startX, y: this.startY }];
             }
@@ -129,8 +299,12 @@ export class Game {
 
             this.clicked = false;
             const rect = this.canvas.getBoundingClientRect();
-            this.endX = e.clientX - rect.left;
-            this.endY = e.clientY - rect.top;
+            const screenX = e.clientX - rect.left;
+            const screenY = e.clientY - rect.top;
+            const world = this.screenToWorld(screenX, screenY);
+            this.endX = world.x;
+            this.endY = world.y;
+            
             const width = this.endX - this.startX;
             const height = this.endY - this.startY;
 
@@ -182,14 +356,21 @@ export class Game {
         };
 
         const handleMouseMove = (e: MouseEvent) => {
-            if (this.clicked) {
+            if (this.clicked && !this.isPanning) {
                 const rect = this.canvas.getBoundingClientRect();
-                const currentX = e.clientX - rect.left;
-                const currentY = e.clientY - rect.top;
+                const screenX = e.clientX - rect.left;
+                const screenY = e.clientY - rect.top;
+                const world = this.screenToWorld(screenX, screenY);
+                const currentX = world.x;
+                const currentY = world.y;
+                
                 const width = currentX - this.startX;
                 const height = currentY - this.startY;
 
                 this.clearCanvas();
+                this.ctx.save();
+                this.ctx.translate(this.cameraX, this.cameraY);
+                this.ctx.scale(this.scale, this.scale);
                 this.ctx.strokeStyle = "rgba(255, 255, 255, 1)";
 
                 if (this.selectedTool === ShapeTool.Rectangle) {
@@ -208,6 +389,8 @@ export class Game {
                 } else if (this.selectedTool === ShapeTool.Arrow) {
                     this.drawArrow(this.startX, this.startY, currentX, currentY);
                 }
+                
+                this.ctx.restore();
             }
         };
 
@@ -236,6 +419,34 @@ export class Game {
             window.removeEventListener("resize", resizeCanvas);
         });
 
+        this.clearCanvas();
+    }
+
+    public getScale(): number {
+        return this.scale;
+    }
+    
+    public zoom(delta: number): void {
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+        const worldX = (centerX - this.cameraX) / this.scale;
+        const worldY = (centerY - this.cameraY) / this.scale;
+        const newScale = Math.min(
+            Math.max(this.scale * (1 + delta), this.MIN_SCALE),
+            this.MAX_SCALE
+        );
+        
+        this.cameraX = centerX - worldX * newScale;
+        this.cameraY = centerY - worldY * newScale;
+        this.scale = newScale;
+        
+        this.clearCanvas();
+    }
+    
+    public resetView(): void {
+        this.cameraX = 0;
+        this.cameraY = 0;
+        this.scale = 1;
         this.clearCanvas();
     }
 

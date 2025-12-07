@@ -1,5 +1,5 @@
 import { prisma } from '@repo/db';
-import { type WebSocket, WebSocketServer } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { getJwtSecret } from '@repo/common/config';
 
@@ -74,12 +74,8 @@ wss.on('connection', (ws: WebSocket, req) => {
     ws.on('message', async (message) => {
         try {
             const parsedData = JSON.parse(message.toString());
-
-            // JOIN ROOM
             if (parsedData.type === "join_room") {
                 const { roomId } = parsedData;
-                
-                // Verify room exists
                 const room = await prisma.room.findUnique({
                     where: { id: roomId }
                 });
@@ -92,14 +88,11 @@ wss.on('connection', (ws: WebSocket, req) => {
                 const user = users.find(x => x.ws === ws);
                 if (user && !user.rooms.includes(roomId)) {
                     user.rooms.push(roomId);
-                    
-                    // Send confirmation
-                    ws.send(JSON.stringify({ 
-                        type: "room_joined", 
-                        roomId 
+                    ws.send(JSON.stringify({
+                        type: "room_joined",
+                        roomId
                     }));
 
-                    // Notify other users in the room
                     users.forEach(u => {
                         if (u.userId !== userId && u.rooms.includes(roomId)) {
                             u.ws.send(JSON.stringify({
@@ -112,7 +105,6 @@ wss.on('connection', (ws: WebSocket, req) => {
                 }
             }
 
-            // LEAVE ROOM
             if (parsedData.type === "leave_room") {
                 const { roomId } = parsedData;
                 const user = users.find(x => x.ws === ws);
@@ -165,11 +157,11 @@ wss.on('connection', (ws: WebSocket, req) => {
                     if (user.rooms.includes(roomId)) {
                         user.ws.send(JSON.stringify({
                             type: "chat",
-                            chatId: chat.id,
+                            chatId: chat.id.toString(),
                             roomId: roomId,
                             message: chat.message,
                             userId: chat.userId,
-                            createdAt: chat.createdAt
+                            createdAt: chat.createdAt.toISOString()
                         }));
                     }
                 });
@@ -206,48 +198,48 @@ wss.on('connection', (ws: WebSocket, req) => {
 
             if (parsedData.type === "request_canvas_state") {
                 const { roomId } = parsedData;
-                const otherUser = users.find(u => 
-                    u.userId !== userId && 
+                const otherUsers = users.filter(u =>
+                    u.userId !== userId &&
                     u.rooms.includes(roomId)
                 );
 
-                if (otherUser) {
-                    otherUser.ws.send(JSON.stringify({
+                if (otherUsers.length > 0) {
+                    otherUsers[0]!.ws.send(JSON.stringify({
                         type: "send_canvas_state",
                         roomId,
                         requesterId: userId
                     }));
                 }
             }
+
             if (parsedData.type === "canvas_state") {
                 const { roomId, canvasData, requesterId } = parsedData;
                 const requester = users.find(u => u.userId === requesterId);
-                if (requester) {
+                if (requester && requester.ws.readyState === WebSocket.OPEN) {
                     requester.ws.send(JSON.stringify({
                         type: "canvas_state",
                         roomId,
                         canvasData
                     }));
-                }
+                } 
             }
-
         } catch (error) {
-            ws.send(JSON.stringify({ 
-                type: "error", 
-                error: "Failed to process message" 
+            ws.send(JSON.stringify({
+                type: "error",
+                error: "Failed to process message"
             }));
         }
     });
 
     ws.on('error', (error) => {
-
+        console.error('WebSocket error:', error);
     });
 
     ws.on('close', () => {
         const index = users.findIndex(u => u.ws === ws);
         if (index !== -1) {
             const user = users[index];
-            
+
             user!.rooms.forEach(roomId => {
                 users.forEach(u => {
                     if (u.userId !== userId && u.rooms.includes(roomId)) {
@@ -259,7 +251,7 @@ wss.on('connection', (ws: WebSocket, req) => {
                     }
                 });
             });
-            
+
             users.splice(index, 1);
         }
     });
