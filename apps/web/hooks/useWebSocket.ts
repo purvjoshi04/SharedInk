@@ -34,7 +34,6 @@ export function useWebSocket(url: string | null, roomId: string) {
 
         return () => {
             clearTimeout(reconnectTimeout);
-            if (ws) ws.close();
         };
     }, [url, roomId]);
 

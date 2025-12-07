@@ -28,21 +28,18 @@ export async function getExistingShapes(roomId: string): Promise<Shape[]> {
                     validTypes.includes(shapeData.type)) {
                     shapes.push(shapeData as Shape);
                 }
-            } catch (e) {
+            } catch {
                 continue;
             }
         }
 
         return shapes;
 
-    } catch (error: any) {
-        if (error.response) {
-            console.error("API Error:", error.response.status, error.response.data);
-            if (error.response.status === 401) {
-                console.error("Unauthorized! Check if you're logged in on backend");
-            }
+    } catch (error: unknown) {
+        if (error instanceof Error) {
+            console.error("Error fetching shapes:", error.message);
         } else {
-            console.error("Network error:", error.message);
+            console.error("Unexpected error:", error);
         }
         return [];
     }
