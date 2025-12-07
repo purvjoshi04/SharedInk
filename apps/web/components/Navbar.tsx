@@ -20,7 +20,7 @@ export default function Navbar({ selectedTool, onToolChange }: NavbarProps) {
         { icon: <Square size={18} />, label: "Rectangle", tool: ShapeTool.Rectangle },
         { icon: <Circle size={18} />, label: "Circle", tool: ShapeTool.Circle },
         { icon: <MoveRight size={18} />, label: "Arrow", tool: ShapeTool.Arrow },
-        {icon: <PencilIcon size={18}/>, label: "Pencile", tool: ShapeTool.Pencil}
+        {icon: <PencilIcon size={18}/>, label: "Pencil", tool: ShapeTool.Pencil}
     ]
 
     return (
