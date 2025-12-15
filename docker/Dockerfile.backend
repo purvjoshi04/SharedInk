@@ -1,14 +1,19 @@
 FROM node:24-alpine
 
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 WORKDIR /usr/src/app
 
-COPY ./packages ./packages
-COPY ./package.josn ./package.json
-COPY ./turbo.json ./turbo.josn
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY turbo.json ./
 
+COPY ./packages ./packages
 COPY ./apps/http-backend ./apps/http-backend
 
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
+
 RUN pnpm run db:generate
 
-CMD [ "pnpm", "run", "dev" ]
+EXPOSE 3001
+
+CMD ["pnpm", "run", "dev", "--filter=http-backend"]

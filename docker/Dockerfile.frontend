@@ -1,15 +1,19 @@
 FROM node:24-alpine
 
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 WORKDIR /usr/src/app
 
-COPY ./packages ./packages
-COPY ./package.josn ./package.json
-COPY ./turbo.json ./turbo.josn
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY turbo.json ./
 
+COPY ./packages ./packages
 COPY ./apps/web ./apps/web
 
-RUN pnpm install
-RUN pnpm run db:migrate
-RUN pnpm run build
+RUN pnpm install --frozen-lockfile
 
-CMD [ "pnpm", "run", "dev" ]
+RUN pnpm run build --filter=web
+
+EXPOSE 3000
+
+CMD ["pnpm", "run", "dev", "--filter=web"]
