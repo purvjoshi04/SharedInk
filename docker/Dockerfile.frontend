@@ -1,0 +1,15 @@
+FROM node:24-alpine
+
+WORKDIR /usr/src/app
+
+COPY ./packages ./packages
+COPY ./package.josn ./package.json
+COPY ./turbo.json ./turbo.josn
+
+COPY ./apps/web ./apps/web
+
+RUN pnpm install
+RUN pnpm run db:migrate
+RUN pnpm run build
+
+CMD [ "pnpm", "run", "dev" ]

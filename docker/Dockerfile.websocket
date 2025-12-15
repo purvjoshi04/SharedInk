@@ -1,0 +1,13 @@
+FROM node:24-alpine
+
+WORKDIR /usr/src/app
+
+COPY ./packages ./packages
+COPY ./package.josn ./package.json
+COPY ./turbo.json ./turbo.josn
+
+COPY ./apps/ws-backend ./apps/ws-backend
+
+RUN pnpm install
+
+CMD [ "pnpm", "run", "dev" ]
