@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const createUserSchema = z.object({
-    email: z.email(),
+    email: z.string().email({ message: "Invalid email address" }),
     password: z.string()
         .min(8, { message: "Password must be at least 8 characters" })
         .refine((password) => /[A-Z]/.test(password), {
@@ -20,7 +20,7 @@ export const createUserSchema = z.object({
 });
 
 export const SigninSchema = z.object({
-    email: z.email(),
+    email: z.string().email({ message: "Invalid email address" }),
     password: z.string()
         .min(8, { message: "Password must be at least 8 characters" })
         .refine((password) => /[A-Z]/.test(password), {
