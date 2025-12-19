@@ -13,7 +13,6 @@ COPY apps/web/ ./apps/web/
 
 RUN pnpm install --frozen-lockfile
 
-# Generate Prisma Client if web uses it
 RUN cd packages/db && pnpm prisma generate || true
 
 FROM base AS runner

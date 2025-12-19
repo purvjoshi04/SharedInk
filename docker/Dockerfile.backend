@@ -5,24 +5,19 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 FROM base AS deps
 WORKDIR /usr/src/app
 
-# Copy workspace config
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY turbo.json ./
 
-# Copy ALL source code (not just package.json)
 COPY packages/ ./packages/
 COPY apps/http-backend/ ./apps/http-backend/
 
-# Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Generate Prisma Client
 RUN cd packages/db && pnpm prisma generate
 
 FROM base AS runner
 WORKDIR /usr/src/app
 
-# Copy everything from deps
 COPY --from=deps /usr/src/app ./
 
 EXPOSE 3001

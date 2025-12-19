@@ -13,7 +13,6 @@ COPY apps/ws-backend/ ./apps/ws-backend/
 
 RUN pnpm install --frozen-lockfile
 
-# Generate Prisma Client
 RUN cd packages/db && pnpm prisma generate
 
 FROM base AS runner
