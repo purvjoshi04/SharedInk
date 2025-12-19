@@ -38,11 +38,9 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      # Mount source code for hot reload
       - ./apps/http-backend/src:/usr/src/app/apps/http-backend/src:delegated
       - ./packages/db/src:/usr/src/app/packages/db/src:delegated
       - ./packages/db/prisma:/usr/src/app/packages/db/prisma:delegated
-      # Preserve node_modules from build
       - backend_node_modules:/usr/src/app/node_modules
       - backend_app_node_modules:/usr/src/app/apps/http-backend/node_modules
       - backend_packages_node_modules:/usr/src/app/packages/db/node_modules
@@ -65,11 +63,9 @@ services:
       - postgres
       - http-backend
     volumes:
-      # Mount source code for hot reload
       - ./apps/ws-backend/src:/usr/src/app/apps/ws-backend/src:delegated
       - ./packages/db/src:/usr/src/app/packages/db/src:delegated
       - ./packages/db/prisma:/usr/src/app/packages/db/prisma:delegated
-      # Preserve node_modules from build
       - ws_node_modules:/usr/src/app/node_modules
       - ws_app_node_modules:/usr/src/app/apps/ws-backend/node_modules
       - ws_packages_node_modules:/usr/src/app/packages/db/node_modules
@@ -92,12 +88,10 @@ services:
     depends_on:
       - http-backend
     volumes:
-      # Mount source code for hot reload
       - ./apps/web/src:/usr/src/app/apps/web/src:delegated
       - ./apps/web/app:/usr/src/app/apps/web/app:delegated
       - ./apps/web/public:/usr/src/app/apps/web/public:delegated
       - ./packages/db/src:/usr/src/app/packages/db/src:delegated
-      # Preserve node_modules and build artifacts
       - web_node_modules:/usr/src/app/node_modules
       - web_app_node_modules:/usr/src/app/apps/web/node_modules
       - web_next:/usr/src/app/apps/web/.next
