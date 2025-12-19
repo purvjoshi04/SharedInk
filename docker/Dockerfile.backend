@@ -1,19 +1,30 @@
-FROM node:24-alpine
+FROM node:24-alpine AS base
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
+FROM base AS deps
 WORKDIR /usr/src/app
 
+# Copy workspace config
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY turbo.json ./
 
-COPY ./packages ./packages
-COPY ./apps/http-backend ./apps/http-backend
+# Copy ALL source code (not just package.json)
+COPY packages/ ./packages/
+COPY apps/http-backend/ ./apps/http-backend/
 
+# Install dependencies
 RUN pnpm install --frozen-lockfile
 
-RUN pnpm run db:generate
+# Generate Prisma Client
+RUN cd packages/db && pnpm prisma generate
+
+FROM base AS runner
+WORKDIR /usr/src/app
+
+# Copy everything from deps
+COPY --from=deps /usr/src/app ./
 
 EXPOSE 3001
 
-CMD ["pnpm", "run", "dev", "--filter=http-backend"]
+CMD ["sh", "-c", "cd packages/db && pnpm prisma migrate deploy && cd ../.. && pnpm run dev --filter=http-backend"]

@@ -1,18 +1,25 @@
-FROM node:24-alpine
+FROM node:24-alpine AS base
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
+FROM base AS deps
 WORKDIR /usr/src/app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY turbo.json ./
 
-COPY ./packages ./packages
-COPY ./apps/web ./apps/web
+COPY packages/ ./packages/
+COPY apps/web/ ./apps/web/
 
 RUN pnpm install --frozen-lockfile
 
-RUN pnpm run build --filter=web
+# Generate Prisma Client if web uses it
+RUN cd packages/db && pnpm prisma generate || true
+
+FROM base AS runner
+WORKDIR /usr/src/app
+
+COPY --from=deps /usr/src/app ./
 
 EXPOSE 3000
 
