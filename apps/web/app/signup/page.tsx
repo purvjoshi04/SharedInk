@@ -54,7 +54,7 @@ export default function Signup() {
             localStorage.setItem('token', token);
 
             toast.success('Singup successful!', {
-                description: 'Redirecting to your dashboard...',
+                description: 'Redirecting to your canvas...',
                 duration: 1500,
             });
             setTimeout(() => {

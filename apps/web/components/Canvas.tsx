@@ -84,6 +84,7 @@ export default function Canvas({
                 <ul className="space-y-1 text-xs opacity-80">
                     <li>• Scroll to zoom</li>
                     <li>• Middle click or Shift+Drag to pan</li>
+                    <li>• Shift + mouse right click to move shape</li>
                     <li>• Ctrl/Cmd + / - to zoom</li>
                     <li>• Ctrl/Cmd + 0 to reset view</li>
                 </ul>

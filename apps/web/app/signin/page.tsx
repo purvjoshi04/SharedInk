@@ -58,7 +58,7 @@ export default function SigninPage() {
             localStorage.setItem('token', token);
 
             toast.success('Login successful!', {
-                description: 'Redirecting to your dashboard...',
+                description: 'Redirecting to your canvas...',
                 duration: 1500,
             });
 

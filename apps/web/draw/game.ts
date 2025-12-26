@@ -50,12 +50,12 @@ export class Game {
     async init() {
         this.existingShapes = await getExistingShapes(this.roomId);
         this.clearCanvas();
-        
+
         this.socket.send(JSON.stringify({
             type: "join_room",
             roomId: this.roomId
         }));
-        
+
         setTimeout(() => {
             this.socket.send(JSON.stringify({
                 type: "request_canvas_state",
@@ -71,17 +71,17 @@ export class Game {
 
                 if (message.type === "chat" && message.roomId === this.roomId) {
                     const parsedShape = JSON.parse(message.message);
-                    
-                    const shapeExists = this.existingShapes.some(s => 
+
+                    const shapeExists = this.existingShapes.some(s =>
                         JSON.stringify(s) === JSON.stringify(parsedShape)
                     );
-                    
+
                     if (!shapeExists) {
                         this.existingShapes.push(parsedShape);
                         this.clearCanvas();
                     }
                 }
-                
+
                 if (message.type === "send_canvas_state" && message.roomId === this.roomId) {
                     this.socket.send(JSON.stringify({
                         type: "canvas_state",
@@ -90,13 +90,13 @@ export class Game {
                         requesterId: message.requesterId
                     }));
                 }
-                
+
                 if (message.type === "canvas_state" && message.roomId === this.roomId) {
                     if (message.canvasData && Array.isArray(message.canvasData) && message.canvasData.length > 0) {
                         const existingShapesSet = new Set(
                             this.existingShapes.map(s => JSON.stringify(s))
                         );
-                        
+
                         message.canvasData.forEach((shape: Shape) => {
                             const shapeStr = JSON.stringify(shape);
                             if (!existingShapesSet.has(shapeStr)) {
@@ -104,7 +104,7 @@ export class Game {
                                 existingShapesSet.add(shapeStr);
                             }
                         });
-                        
+
                         this.clearCanvas();
                     }
                 }
@@ -114,7 +114,7 @@ export class Game {
         };
 
         this.socket.addEventListener("message", this.messageHandler);
-        
+
         this.cleanupFunctions.push(() => {
             if (this.messageHandler) {
                 this.socket.removeEventListener("message", this.messageHandler);
@@ -125,25 +125,29 @@ export class Game {
     initInfiniteCanvas() {
         const handleWheel = (e: WheelEvent) => {
             e.preventDefault();
-            
-            const rect = this.canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            const worldX = (mouseX - this.cameraX) / this.scale;
-            const worldY = (mouseY - this.cameraY) / this.scale;
-            const zoomFactor = e.deltaY * this.ZOOM_SENSITIVITY;
-            const newScale = Math.min(
-                Math.max(this.scale * (1 - zoomFactor), this.MIN_SCALE),
-                this.MAX_SCALE
-            );
-            
-            this.cameraX = mouseX - worldX * newScale;
-            this.cameraY = mouseY - worldY * newScale;
-            this.scale = newScale;
-            
-            this.clearCanvas();
+            if (e.shiftKey) {
+                this.cameraX -= e.deltaY;
+                this.clearCanvas();
+            } else {
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const worldX = (mouseX - this.cameraX) / this.scale;
+                const worldY = (mouseY - this.cameraY) / this.scale;
+                const zoomFactor = e.deltaY * this.ZOOM_SENSITIVITY;
+                const newScale = Math.min(
+                    Math.max(this.scale * (1 - zoomFactor), this.MIN_SCALE),
+                    this.MAX_SCALE
+                );
+
+                this.cameraX = mouseX - worldX * newScale;
+                this.cameraY = mouseY - worldY * newScale;
+                this.scale = newScale;
+
+                this.clearCanvas();
+            }
         };
-        
+
         const handleMouseDown = (e: MouseEvent) => {
             if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
                 e.preventDefault();
@@ -155,7 +159,7 @@ export class Game {
                 this.canvas.style.cursor = 'grabbing';
             }
         };
-        
+
         const handleMouseMove = (e: MouseEvent) => {
             if (this.isPanning) {
                 e.preventDefault();
@@ -166,26 +170,26 @@ export class Game {
                 this.clearCanvas();
             }
         };
-        
+
         const handleMouseUp = (e: MouseEvent) => {
             if (e.button === 1 || (e.button === 0 && this.isPanning)) {
                 this.isPanning = false;
                 this.canvas.style.cursor = 'default';
             }
         };
-        
+
         const preventContextMenu = (e: MouseEvent) => {
             if (e.button === 1) {
                 e.preventDefault();
             }
         };
-        
+
         this.canvas.addEventListener('wheel', handleWheel, { passive: false });
         this.canvas.addEventListener('mousedown', handleMouseDown);
         this.canvas.addEventListener('mousemove', handleMouseMove);
         this.canvas.addEventListener('mouseup', handleMouseUp);
         this.canvas.addEventListener('contextmenu', preventContextMenu);
-        
+
         this.cleanupFunctions.push(() => {
             this.canvas.removeEventListener('wheel', handleWheel);
             this.canvas.removeEventListener('mousedown', handleMouseDown);
@@ -231,7 +235,7 @@ export class Game {
                 this.drawArrow(shape.startX, shape.startY, shape.endX, shape.endY);
             }
         });
-        
+
         this.ctx.restore();
     }
 
@@ -283,7 +287,7 @@ export class Game {
             const world = this.screenToWorld(screenX, screenY);
             this.startX = world.x;
             this.startY = world.y;
-            
+
             if (this.selectedTool === ShapeTool.Pencil) {
                 this.currentPencilStroke = [{ x: this.startX, y: this.startY }];
             }
@@ -302,7 +306,7 @@ export class Game {
             const world = this.screenToWorld(screenX, screenY);
             this.endX = world.x;
             this.endY = world.y;
-            
+
             const width = this.endX - this.startX;
             const height = this.endY - this.startY;
 
@@ -361,7 +365,7 @@ export class Game {
                 const world = this.screenToWorld(screenX, screenY);
                 const currentX = world.x;
                 const currentY = world.y;
-                
+
                 const width = currentX - this.startX;
                 const height = currentY - this.startY;
 
@@ -387,7 +391,7 @@ export class Game {
                 } else if (this.selectedTool === ShapeTool.Arrow) {
                     this.drawArrow(this.startX, this.startY, currentX, currentY);
                 }
-                
+
                 this.ctx.restore();
             }
         };
@@ -423,7 +427,7 @@ export class Game {
     public getScale(): number {
         return this.scale;
     }
-    
+
     public zoom(delta: number): void {
         const centerX = this.canvas.width / 2;
         const centerY = this.canvas.height / 2;
@@ -433,14 +437,14 @@ export class Game {
             Math.max(this.scale * (1 + delta), this.MIN_SCALE),
             this.MAX_SCALE
         );
-        
+
         this.cameraX = centerX - worldX * newScale;
         this.cameraY = centerY - worldY * newScale;
         this.scale = newScale;
-        
+
         this.clearCanvas();
     }
-    
+
     public resetView(): void {
         this.cameraX = 0;
         this.cameraY = 0;
