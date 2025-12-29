@@ -30,14 +30,6 @@ export default function RoomCanvas({ roomId }: { roomId: string }) {
         }
     }, [hasMounted, token, router]);
 
-    if (!hasMounted) {
-        return (
-            <div className="h-screen w-screen flex items-center justify-center bg-background">
-                {/* You can add a subtle spinner or just empty */}
-            </div>
-        );
-    }
-
     if (!token) {
         return (
             <div className="h-screen w-screen flex items-center justify-center bg-background">
