@@ -8,7 +8,7 @@ SharedInk is a collaborative canvas where users can draw shapes like squares, ci
 
 > [!NOTE]  
 > This project uses **pnpm** as the only package manager.  
-> https://pnpm.io/
+> [pnpm](https://pnpm.io/)
 
 1. Clone the repository
 
