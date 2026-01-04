@@ -39,7 +39,7 @@ Create a .env file inside the packages/db folder:
 DATABASE_URL="postgresql://postgres:postgres@postgres:5432/postgres"
 ```
 
-[!NOTE]
+> [!NOTE]
 > You must have a running PostgreSQL database.
 > You can either:
 
