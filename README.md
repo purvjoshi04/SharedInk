@@ -1,6 +1,6 @@
 # SharedInk
 
-SharedInk is a collaborative canvas where users can draw shapes like squares, circles, arrows, and also use a freehand pencil tool.
+SharedInk is a canvas where users can draw shapes like squares, circles, arrows, and also use a freehand pencil tool.
 
 ## Running Locally
 
