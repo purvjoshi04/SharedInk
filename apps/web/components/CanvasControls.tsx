@@ -21,7 +21,7 @@ export default function CanvasControls({
                 <ZoomOut className="w-5 h-5 text-white" />
             </button>
             
-            <div className="px-3 py-1 rounded text-white text-sm font-mono min-w-[60px] text-center">
+            <div className="px-3 py-1 rounded text-white text-sm font-mono min-w-15 text-center">
                 {Math.round(scale * 100)}%
             </div>
             

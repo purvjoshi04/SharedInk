@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Navbar, { ShapeTool } from "./Navbar";
 import CanvasControls from "./CanvasControls";
-import { Game } from "@/draw/game";
+import { Game } from "@/app/api/draw/game";
 
 export default function Canvas({ 
     roomId, 
