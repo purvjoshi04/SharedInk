@@ -1,4 +1,4 @@
-import { prisma } from '@repo/db';
+import { Prisma, prisma } from '@repo/db';
 import { getJwtSecret, JWT_EXPIRY } from '@repo/common/config';
 import { CreateRoomSchema, createUserSchema, SigninSchema } from '@repo/common/types';
 import { Router, type Router as RouterType } from "express";
@@ -6,7 +6,7 @@ import { userMiddleware } from "../middleware/middleware";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-(BigInt.prototype as any).toJSON = function() {
+(BigInt.prototype as any).toJSON = function () {
     return this.toString();
 };
 
@@ -236,5 +236,84 @@ router.get("/room/:slug", async (req, res) => {
     } catch (error) {
         console.error("Error fetching room:", error);
         res.status(500).json({ error: "Failed to fetch room" });
+    }
+});
+
+
+router.post('/auth/google', async (req, res) => {
+    const { email, name, image } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ message: 'Email is required' });
+    }
+    const validation = CreateRoomSchema.safeParse(req.body);
+    if (!validation.success) {
+        console.log('Room validation failed:', validation.error.issues);
+    }
+
+    try {
+        const user = await prisma.user.upsert({
+            where: { email },
+            update: {
+                name: name ?? undefined,
+                image: image ?? undefined,
+                provider: 'google',
+            },
+            create: {
+                email,
+                name,
+                image,
+                provider: 'google',
+            },
+        });
+
+        let room = await prisma.room.findFirst({
+            where: { adminId: user.id },
+        });
+
+        if (!room) {
+            const fallbackName = user.name?.split(' ')[0]?.toLowerCase() || 'canvas';
+            const slug = `${fallbackName}-${Date.now().toString().slice(-6)}`;
+
+            room = await prisma.room.create({
+                data: {
+                    slug,
+                    adminId: user.id,
+                },
+            });
+        }
+
+        const token = jwt.sign(
+            { userId: user.id, email: user.email },
+            getJwtSecret(),
+            { expiresIn: '7d' }
+        );
+
+        return res.json({
+            token,
+            roomId: room.id,
+        });
+    } catch (error: unknown) {
+        console.error('=== GOOGLE AUTH FULL ERROR ===');
+        console.error(error);                       // raw error
+        console.error('Stack:', (error as Error).stack); // full stack trace
+        console.error('Error type:', typeof error);
+        console.error('Error message:', error instanceof Error ? error.message : String(error));
+
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            console.error('Prisma code:', error.code);
+            console.error('Prisma meta:', error.meta);
+            if (error.code === 'P2002') {
+                return res.status(409).json({
+                    message: 'Unique constraint violation (email or slug already exists)',
+                });
+            }
+        }
+
+        return res.status(500).json({
+            message: 'Internal server error',
+            errorDetails: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined, // only in dev!
+        });
     }
 });

@@ -9,12 +9,15 @@ datasource db {
 }
 
 model User {
-  id       String  @id @default(uuid())
-  email    String  @unique
-  password String
-  name     String?
-  rooms    Room[]  @relation("RoomAdmin")
-  chats    Chat[]
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String?
+  name      String?
+  image     String?
+  provider  String?
+  googleId  String?  @unique
+  rooms     Room[]   @relation("RoomAdmin")
+  chats     Chat[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -42,8 +45,8 @@ model Chat {
   message   String   @db.Text
   createdAt DateTime @default(now())
 
-  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([roomId])
   @@index([userId])
