@@ -28,6 +28,9 @@ export class Game {
     private readonly MIN_SCALE = 0.1;
     private readonly MAX_SCALE = 5;
     private readonly ZOOM_SENSITIVITY = 0.009;
+    private readonly ERASER_RADIUS = 20;
+    private isErasing = false;
+    private eraserPath: { x: number; y: number }[] = [];
 
     constructor(canvas: HTMLCanvasElement, roomId: string, socket: WebSocket) {
         this.canvas = canvas;
@@ -249,6 +252,13 @@ export class Game {
         };
     }
 
+    private worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
+        return {
+            x: worldX * this.scale + this.cameraX,
+            y: worldY * this.scale + this.cameraY
+        };
+    }
+
     private distanceToLineSegment(
         px: number, py: number,
         x1: number, y1: number,
@@ -324,21 +334,130 @@ export class Game {
         this.ctx.restore();
     }
 
-    private eraseShapeAt(worldX: number, worldY: number) {
+    private eraseAlongPath(eraserPath: { x: number; y: number }[]) {
+        const shapesToModify: { index: number; shape: Shape }[] = [];
+
         for (let i = this.existingShapes.length - 1; i >= 0; i--) {
-            if (this.isPointInShape(worldX, worldY, this.existingShapes[i])) {
-                const shapeToDelete = this.existingShapes[i];
-                this.existingShapes.splice(i, 1);
+            const shape = this.existingShapes[i];
+            let intersects = false;
+
+            for (const point of eraserPath) {
+                if (this.shapeIntersectsEraser(shape, point.x, point.y)) {
+                    intersects = true;
+                    break;
+                }
+            }
+
+            if (intersects) {
+                shapesToModify.push({ index: i, shape });
+            }
+        }
+
+        for (const { index, shape } of shapesToModify) {
+            if (shape.type === 'pencil') {
+                const newStrokes = this.splitPencilStroke(shape.points, eraserPath);
+                this.existingShapes.splice(index, 1);
                 this.socket.send(JSON.stringify({
                     type: "delete_shape",
-                    shape: shapeToDelete,
+                    shape: shape,
                     roomId: this.roomId
                 }));
 
-                this.clearCanvas();
-                return;
+                for (const newStroke of newStrokes) {
+                    if (newStroke.length >= 2) {
+                        const newShape: Shape = {
+                            type: 'pencil',
+                            points: newStroke
+                        };
+                        this.existingShapes.push(newShape);
+                        this.socket.send(JSON.stringify({
+                            type: "chat",
+                            message: JSON.stringify(newShape),
+                            roomId: this.roomId
+                        }));
+                    }
+                }
+            } else {
+                this.existingShapes.splice(index, 1);
+                this.socket.send(JSON.stringify({
+                    type: "delete_shape",
+                    shape: shape,
+                    roomId: this.roomId
+                }));
             }
         }
+    }
+
+    private shapeIntersectsEraser(shape: Shape, eraserX: number, eraserY: number): boolean {
+        const radius = this.ERASER_RADIUS / this.scale;
+
+        if (shape.type === 'pencil') {
+            for (let i = 0; i < shape.points.length - 1; i++) {
+                const dist = this.distanceToLineSegment(
+                    eraserX, eraserY,
+                    shape.points[i].x, shape.points[i].y,
+                    shape.points[i + 1].x, shape.points[i + 1].y
+                );
+                if (dist < radius) return true;
+            }
+            return false;
+        } else if (shape.type === 'rect') {
+            const closestX = Math.max(shape.x, Math.min(eraserX, shape.x + shape.width));
+            const closestY = Math.max(shape.y, Math.min(eraserY, shape.y + shape.height));
+            const distX = eraserX - closestX;
+            const distY = eraserY - closestY;
+            return (distX * distX + distY * distY) < (radius * radius);
+        } else if (shape.type === 'circle') {
+            const dx = eraserX - shape.centerX;
+            const dy = eraserY - shape.centerY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            return dist < (shape.radius + radius);
+        } else if (shape.type === 'arrow') {
+            const dist = this.distanceToLineSegment(
+                eraserX, eraserY,
+                shape.startX, shape.startY,
+                shape.endX, shape.endY
+            );
+            return dist < radius;
+        }
+
+        return false;
+    }
+
+    private splitPencilStroke(points: { x: number; y: number }[], eraserPath: { x: number; y: number }[]): { x: number; y: number }[][] {
+        const radius = this.ERASER_RADIUS / this.scale;
+        const segments: { x: number; y: number }[][] = [];
+        let currentSegment: { x: number; y: number }[] = [];
+
+        for (let i = 0; i < points.length; i++) {
+            const point = points[i];
+            let shouldErase = false;
+            for (const eraserPoint of eraserPath) {
+                const dx = point.x - eraserPoint.x;
+                const dy = point.y - eraserPoint.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < radius) {
+                    shouldErase = true;
+                    break;
+                }
+            }
+
+            if (shouldErase) {
+                if (currentSegment.length >= 2) {
+                    segments.push(currentSegment);
+                }
+                currentSegment = [];
+            } else {
+                currentSegment.push(point);
+            }
+        }
+
+        if (currentSegment.length >= 2) {
+            segments.push(currentSegment);
+        }
+
+        return segments;
     }
 
     private drawArrow(fromX: number, fromY: number, toX: number, toY: number) {
@@ -384,11 +503,12 @@ export class Game {
             if (this.selectedTool === ShapeTool.Pointer) return;
 
             if (this.selectedTool === ShapeTool.Eraser) {
+                this.isErasing = true;
                 const rect = this.canvas.getBoundingClientRect();
                 const screenX = e.clientX - rect.left;
                 const screenY = e.clientY - rect.top;
                 const world = this.screenToWorld(screenX, screenY);
-                this.eraseShapeAt(world.x, world.y);
+                this.eraserPath = [{ x: world.x, y: world.y }];
                 return;
             }
 
@@ -406,6 +526,16 @@ export class Game {
         };
 
         const handleMouseUp = (e: MouseEvent) => {
+            if (this.isErasing) {
+                this.isErasing = false;
+                if (this.eraserPath.length > 0) {
+                    this.eraseAlongPath(this.eraserPath);
+                    this.eraserPath = [];
+                    this.clearCanvas();
+                }
+                return;
+            }
+
             if (!this.clicked || this.selectedTool === ShapeTool.Pointer) {
                 this.clicked = false;
                 return;
@@ -470,6 +600,16 @@ export class Game {
         };
 
         const handleMouseMove = (e: MouseEvent) => {
+            if (this.isErasing) {
+                const rect = this.canvas.getBoundingClientRect();
+                const screenX = e.clientX - rect.left;
+                const screenY = e.clientY - rect.top;
+                const world = this.screenToWorld(screenX, screenY);
+                this.eraserPath.push({ x: world.x, y: world.y });
+                this.clearCanvas();
+                return;
+            }
+
             if (this.clicked && !this.isPanning) {
                 const rect = this.canvas.getBoundingClientRect();
                 const screenX = e.clientX - rect.left;
