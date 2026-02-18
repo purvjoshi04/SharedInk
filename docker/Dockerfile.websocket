@@ -11,7 +11,7 @@ COPY turbo.json ./
 COPY packages/ ./packages/
 COPY apps/ws-backend/ ./apps/ws-backend/
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --shamefully-hoist
 
 RUN cd packages/db && pnpm prisma generate
 
