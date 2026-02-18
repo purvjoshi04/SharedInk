@@ -27,12 +27,28 @@ cd SharedInk
 cp .env.example .env
 ```
 
-4. Install dependencies
+4. Create web app environment file
+
+Run following command in terminal:
+```bash
+touch SharedInk/apps/web/.env.local
+```
+Add following env variables:
+
+```bash
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+AUTH_SECRET=
+NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+NEXT_PUBLIC_WS_URL=ws://localhost:3002
+```
+
+5. Install dependencies
 ```bash
 pnpm install
 ```
 
-5. Database Setup
+6. Database Setup
 
 Create a .env file inside the packages/db folder:
 ```bash
@@ -54,18 +70,18 @@ docker run -d \
   -p 5432:5432 \
   postgres:16
 ```
-6. Generate Prisma Client
+7. Generate Prisma Client
 ```bash
 pnpm run db:generate
 ```
 
-7. Run Database Migrations
+8. Run Database Migrations
 
 ```bash
 pnpm run db:migrate
 ```
 
-8. Start the development server
+9. Start the development server
 ```bash
 pnpm dev
 ```
@@ -88,12 +104,28 @@ Create a .env file inside the packages/db folder:
 DATABASE_URL="postgresql://postgres:postgres@postgres:5432/postgres"
 ```
 
-3. Start services using Docker Compose
+3. Create env file in apps/web folder
+
+Run following command in terminal:
+```bash
+touch SharedInk/apps/web/.env.local
+```
+Add following env variables:
+
+```bash
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+AUTH_SECRET=
+NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+NEXT_PUBLIC_WS_URL=ws://localhost:3002
+```
+
+4. Start services using Docker Compose
 ```bash
 docker compose up -d
 ```
 
-4. Visit the application
+5. Visit the application
 ```bash
 http://localhost:3000/
 ```
