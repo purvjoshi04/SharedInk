@@ -293,27 +293,10 @@ router.post('/auth/google', async (req, res) => {
             token,
             roomId: room.id,
         });
-    } catch (error: unknown) {
-        console.error('=== GOOGLE AUTH FULL ERROR ===');
-        console.error(error);                       // raw error
-        console.error('Stack:', (error as Error).stack); // full stack trace
-        console.error('Error type:', typeof error);
-        console.error('Error message:', error instanceof Error ? error.message : String(error));
-
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            console.error('Prisma code:', error.code);
-            console.error('Prisma meta:', error.meta);
-            if (error.code === 'P2002') {
-                return res.status(409).json({
-                    message: 'Unique constraint violation (email or slug already exists)',
-                });
-            }
-        }
-
-        return res.status(500).json({
-            message: 'Internal server error',
+    } catch (error) {
+        res.status(500).json({
             errorDetails: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined, // only in dev!
+            stack: error instanceof Error ? error.stack : undefined,
         });
     }
 });
