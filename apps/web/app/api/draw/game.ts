@@ -28,9 +28,14 @@ export class Game {
     private readonly MIN_SCALE = 0.1;
     private readonly MAX_SCALE = 5;
     private readonly ZOOM_SENSITIVITY = 0.009;
-    private readonly ERASER_RADIUS = 20;
+    private readonly ERASER_RADIUS = 10;
     private isErasing = false;
     private eraserPath: { x: number; y: number }[] = [];
+    private selectedShape: Shape | null = null;
+    private isDragging = false;
+    private dragStartX = 0;
+    private dragStartY = 0;
+    private shapeBeforeDrag: Shape | null = null;
 
     constructor(canvas: HTMLCanvasElement, roomId: string, socket: WebSocket) {
         this.canvas = canvas;
@@ -48,9 +53,13 @@ export class Game {
 
     setTool(tool: ShapeTool) {
         this.selectedTool = tool;
+        if (tool !== ShapeTool.Pointer) {
+            this.selectedShape = null;
+            this.clearCanvas();
+        }
 
         if (tool === ShapeTool.Eraser) {
-            this.canvas.style.cursor = 'crosshair';
+            this.updateEraserCursor();
         } else {
             this.canvas.style.cursor = 'default';
         }
@@ -117,13 +126,24 @@ export class Game {
                         this.clearCanvas();
                     }
                 }
+
                 if (message.type === "delete_shape" && message.roomId === this.roomId) {
                     const shapeToDelete = message.shape;
                     this.existingShapes = this.existingShapes.filter(shape =>
                         JSON.stringify(shape) !== JSON.stringify(shapeToDelete)
                     );
-
                     this.clearCanvas();
+                }
+
+                if (message.type === "move_shape" && message.roomId === this.roomId) {
+                    const { oldShape, newShape } = message;
+                    const idx = this.existingShapes.findIndex(s =>
+                        JSON.stringify(s) === JSON.stringify(oldShape)
+                    );
+                    if (idx !== -1) {
+                        this.existingShapes[idx] = newShape;
+                        this.clearCanvas();
+                    }
                 }
             } catch (error) {
                 console.error("Error handling WebSocket message:", error);
@@ -148,13 +168,31 @@ export class Game {
                 this.canvas.style.cursor = 'grab';
                 e.preventDefault();
             }
+
+            if ((e.code === 'Backspace' || e.code === 'Delete') && this.selectedShape) {
+                const shapeToDelete = this.selectedShape;
+                this.existingShapes = this.existingShapes.filter(s =>
+                    JSON.stringify(s) !== JSON.stringify(shapeToDelete)
+                );
+                this.socket.send(JSON.stringify({
+                    type: "delete_shape",
+                    shape: shapeToDelete,
+                    roomId: this.roomId
+                }));
+                this.selectedShape = null;
+                this.clearCanvas();
+            }
         };
 
         const handleKeyUp = (e: KeyboardEvent) => {
             if (e.code === 'Space') {
                 isSpacePressed = false;
                 if (!this.isPanning) {
-                    this.canvas.style.cursor = this.selectedTool === ShapeTool.Eraser ? 'crosshair' : 'default';
+                    if (this.selectedTool === ShapeTool.Eraser) {
+                        this.updateEraserCursor();
+                    } else {
+                        this.canvas.style.cursor = 'default';
+                    }
                 }
                 e.preventDefault();
             }
@@ -215,8 +253,13 @@ export class Game {
         const handleMouseUp = (e: MouseEvent) => {
             if (e.button === 1 || (e.button === 0 && this.isPanning)) {
                 this.isPanning = false;
-                this.canvas.style.cursor = isSpacePressed ? 'grab' :
-                    (this.selectedTool === ShapeTool.Eraser ? 'crosshair' : 'default');
+                if (isSpacePressed) {
+                    this.canvas.style.cursor = 'grab';
+                } else if (this.selectedTool === ShapeTool.Eraser) {
+                    this.updateEraserCursor();
+                } else {
+                    this.canvas.style.cursor = 'default';
+                }
             }
         };
 
@@ -297,14 +340,107 @@ export class Game {
                     shape.points[i].x, shape.points[i].y,
                     shape.points[i + 1].x, shape.points[i + 1].y
                 );
-                if (dist < 5) return true;
+                if (dist < 5 / this.scale) return true;
             }
             return false;
         } else if (shape.type === "arrow") {
             const dist = this.distanceToLineSegment(x, y, shape.startX, shape.startY, shape.endX, shape.endY);
-            return dist < 5;
+            return dist < 5 / this.scale;
         }
         return false;
+    }
+
+    private getShapeBounds(shape: Shape): { minX: number; minY: number; maxX: number; maxY: number } {
+        if (shape.type === 'rect') {
+            return {
+                minX: Math.min(shape.x, shape.x + shape.width),
+                minY: Math.min(shape.y, shape.y + shape.height),
+                maxX: Math.max(shape.x, shape.x + shape.width),
+                maxY: Math.max(shape.y, shape.y + shape.height),
+            };
+        } else if (shape.type === 'circle') {
+            return {
+                minX: shape.centerX - shape.radius,
+                minY: shape.centerY - shape.radius,
+                maxX: shape.centerX + shape.radius,
+                maxY: shape.centerY + shape.radius,
+            };
+        } else if (shape.type === 'pencil') {
+            const xs = shape.points.map(p => p.x);
+            const ys = shape.points.map(p => p.y);
+            return {
+                minX: Math.min(...xs),
+                minY: Math.min(...ys),
+                maxX: Math.max(...xs),
+                maxY: Math.max(...ys),
+            };
+        } else if (shape.type === 'arrow') {
+            return {
+                minX: Math.min(shape.startX, shape.endX),
+                minY: Math.min(shape.startY, shape.endY),
+                maxX: Math.max(shape.startX, shape.endX),
+                maxY: Math.max(shape.startY, shape.endY),
+            };
+        }
+        return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+    }
+
+    private translateShape(shape: Shape, dx: number, dy: number): Shape {
+        if (shape.type === 'rect') {
+            return { ...shape, x: shape.x + dx, y: shape.y + dy };
+        } else if (shape.type === 'circle') {
+            return { ...shape, centerX: shape.centerX + dx, centerY: shape.centerY + dy };
+        } else if (shape.type === 'pencil') {
+            return { ...shape, points: shape.points.map(p => ({ x: p.x + dx, y: p.y + dy })) };
+        } else if (shape.type === 'arrow') {
+            return {
+                ...shape,
+                startX: shape.startX + dx,
+                startY: shape.startY + dy,
+                endX: shape.endX + dx,
+                endY: shape.endY + dy,
+            };
+        }
+        return shape;
+    }
+
+    private updateEraserCursor() {
+        const radius = this.ERASER_RADIUS;
+        const diameter = radius * 2;
+        const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${diameter}' height='${diameter}' viewBox='0 0 ${diameter} ${diameter}'><circle cx='${radius}' cy='${radius}' r='${radius - 1}' fill='none' stroke='white' stroke-width='1.5'/></svg>`;
+        const encoded = encodeURIComponent(svg);
+        this.canvas.style.cursor = `url("data:image/svg+xml,${encoded}") ${radius} ${radius}, crosshair`;
+    }
+
+    private drawSelectionHighlight(shape: Shape) {
+        const PADDING = 8;
+        const bounds = this.getShapeBounds(shape);
+        const topLeft = this.worldToScreen(bounds.minX, bounds.minY);
+        const bottomRight = this.worldToScreen(bounds.maxX, bounds.maxY);
+
+        const x = topLeft.x - PADDING;
+        const y = topLeft.y - PADDING;
+        const w = (bottomRight.x - topLeft.x) + PADDING * 2;
+        const h = (bottomRight.y - topLeft.y) + PADDING * 2;
+
+        this.ctx.save();
+        this.ctx.strokeStyle = "rgba(99, 179, 237, 0.9)";
+        this.ctx.lineWidth = 1.5;
+        this.ctx.setLineDash([6, 3]);
+        this.ctx.strokeRect(x, y, w, h);
+        this.ctx.fillStyle = "rgba(99, 179, 237, 0.9)";
+        this.ctx.setLineDash([]);
+        const hs = 7;
+        [
+            [x, y],
+            [x + w, y],
+            [x, y + h],
+            [x + w, y + h],
+        ].forEach(([cx, cy]) => {
+            this.ctx.fillRect(cx - hs / 2, cy - hs / 2, hs, hs);
+        });
+
+        this.ctx.restore();
     }
 
     clearCanvas() {
@@ -332,6 +468,9 @@ export class Game {
         });
 
         this.ctx.restore();
+        if (this.selectedShape) {
+            this.drawSelectionHighlight(this.selectedShape);
+        }
     }
 
     private eraseAlongPath(eraserPath: { x: number; y: number }[]) {
@@ -436,7 +575,7 @@ export class Game {
                 const dx = point.x - eraserPoint.x;
                 const dy = point.y - eraserPoint.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
-                
+
                 if (dist < radius) {
                     shouldErase = true;
                     break;
@@ -465,7 +604,7 @@ export class Game {
         const dy = toY - fromY;
         const angle = Math.atan2(dy, dx);
         const headlen = 12 / this.scale;
-        
+
         this.ctx.beginPath();
         this.ctx.moveTo(fromX, fromY);
         this.ctx.lineTo(toX, toY);
@@ -500,23 +639,40 @@ export class Game {
     initMouseHandlers() {
         const handleMouseDown = (e: MouseEvent) => {
             if (this.isPanning || e.button === 1) return;
-            if (this.selectedTool === ShapeTool.Pointer) return;
+
+            const rect = this.canvas.getBoundingClientRect();
+            const world = this.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+            if (this.selectedTool === ShapeTool.Pointer) {
+                let hitShape: Shape | null = null;
+                for (let i = this.existingShapes.length - 1; i >= 0; i--) {
+                    if (this.isPointInShape(world.x, world.y, this.existingShapes[i])) {
+                        hitShape = this.existingShapes[i];
+                        break;
+                    }
+                }
+
+                if (hitShape) {
+                    this.selectedShape = hitShape;
+                    this.isDragging = true;
+                    this.dragStartX = world.x;
+                    this.dragStartY = world.y;
+                    this.shapeBeforeDrag = JSON.parse(JSON.stringify(hitShape));
+                    this.canvas.style.cursor = 'grabbing';
+                } else {
+                    this.selectedShape = null;
+                }
+
+                this.clearCanvas();
+                return;
+            }
 
             if (this.selectedTool === ShapeTool.Eraser) {
                 this.isErasing = true;
-                const rect = this.canvas.getBoundingClientRect();
-                const screenX = e.clientX - rect.left;
-                const screenY = e.clientY - rect.top;
-                const world = this.screenToWorld(screenX, screenY);
                 this.eraserPath = [{ x: world.x, y: world.y }];
                 return;
             }
 
             this.clicked = true;
-            const rect = this.canvas.getBoundingClientRect();
-            const screenX = e.clientX - rect.left;
-            const screenY = e.clientY - rect.top;
-            const world = this.screenToWorld(screenX, screenY);
             this.startX = world.x;
             this.startY = world.y;
 
@@ -526,6 +682,25 @@ export class Game {
         };
 
         const handleMouseUp = (e: MouseEvent) => {
+            if (this.isDragging && this.selectedShape && this.shapeBeforeDrag) {
+                this.isDragging = false;
+                this.canvas.style.cursor = 'default';
+
+                const oldShape = this.shapeBeforeDrag;
+                const newShape = this.selectedShape;
+                if (JSON.stringify(oldShape) !== JSON.stringify(newShape)) {
+                    this.socket.send(JSON.stringify({
+                        type: "move_shape",
+                        oldShape,
+                        newShape,
+                        roomId: this.roomId
+                    }));
+                }
+
+                this.shapeBeforeDrag = null;
+                return;
+            }
+
             if (this.isErasing) {
                 this.isErasing = false;
                 if (this.eraserPath.length > 0) {
@@ -543,9 +718,7 @@ export class Game {
 
             this.clicked = false;
             const rect = this.canvas.getBoundingClientRect();
-            const screenX = e.clientX - rect.left;
-            const screenY = e.clientY - rect.top;
-            const world = this.screenToWorld(screenX, screenY);
+            const world = this.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
             this.endX = world.x;
             this.endY = world.y;
 
@@ -600,26 +773,41 @@ export class Game {
         };
 
         const handleMouseMove = (e: MouseEvent) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const world = this.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+            if (this.isDragging && this.selectedShape) {
+                const dx = world.x - this.dragStartX;
+                const dy = world.y - this.dragStartY;
+
+                const movedShape = this.translateShape(this.selectedShape, dx, dy);
+
+                const idx = this.existingShapes.indexOf(this.selectedShape);
+                if (idx !== -1) {
+                    this.existingShapes[idx] = movedShape;
+                }
+
+                this.selectedShape = movedShape;
+                this.dragStartX = world.x;
+                this.dragStartY = world.y;
+
+                this.clearCanvas();
+                return;
+            }
+
+            if (this.selectedTool === ShapeTool.Pointer && !this.isDragging) {
+                const hovering = this.existingShapes.some(s => this.isPointInShape(world.x, world.y, s));
+                this.canvas.style.cursor = hovering ? 'move' : 'default';
+            }
+
             if (this.isErasing) {
-                const rect = this.canvas.getBoundingClientRect();
-                const screenX = e.clientX - rect.left;
-                const screenY = e.clientY - rect.top;
-                const world = this.screenToWorld(screenX, screenY);
                 this.eraserPath.push({ x: world.x, y: world.y });
                 this.clearCanvas();
                 return;
             }
 
             if (this.clicked && !this.isPanning) {
-                const rect = this.canvas.getBoundingClientRect();
-                const screenX = e.clientX - rect.left;
-                const screenY = e.clientY - rect.top;
-                const world = this.screenToWorld(screenX, screenY);
-                const currentX = world.x;
-                const currentY = world.y;
-
-                const width = currentX - this.startX;
-                const height = currentY - this.startY;
+                const width = world.x - this.startX;
+                const height = world.y - this.startY;
 
                 this.clearCanvas();
                 this.ctx.save();
@@ -639,10 +827,10 @@ export class Game {
                     this.ctx.stroke();
                     this.ctx.closePath();
                 } else if (this.selectedTool === ShapeTool.Pencil) {
-                    this.currentPencilStroke.push({ x: currentX, y: currentY });
+                    this.currentPencilStroke.push({ x: world.x, y: world.y });
                     this.drawPencilStroke(this.currentPencilStroke);
                 } else if (this.selectedTool === ShapeTool.Arrow) {
-                    this.drawArrow(this.startX, this.startY, currentX, currentY);
+                    this.drawArrow(this.startX, this.startY, world.x, world.y);
                 }
 
                 this.ctx.restore();
