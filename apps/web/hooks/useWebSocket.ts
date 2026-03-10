@@ -1,18 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function useWebSocket(url: string | null, roomId: string) {
     const [socket, setSocket] = useState<WebSocket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const [error, setError] = useState<Event | null>(null);
+    const socketRef = useRef<WebSocket | null>(null);
 
     useEffect(() => {
-        let ws: WebSocket;
+        if (!url) return;
+
         let reconnectTimeout: NodeJS.Timeout;
+        let cancelled = false;
 
         const connect = () => {
-            ws = new WebSocket(url as string);
+            if (cancelled) return;
+
+            const ws = new WebSocket(url);
+            socketRef.current = ws;
 
             ws.onopen = () => {
+                if (cancelled) { ws.close(); return; }
                 setSocket(ws);
                 setIsConnected(true);
                 setError(null);
@@ -20,12 +27,14 @@ export function useWebSocket(url: string | null, roomId: string) {
             };
 
             ws.onerror = (e) => {
-                setError(e);
+                if (!cancelled) setError(e);
             };
 
             ws.onclose = () => {
+                if (cancelled) return;
                 setIsConnected(false);
                 setSocket(null);
+                socketRef.current = null;
                 reconnectTimeout = setTimeout(connect, 3000);
             };
         };
@@ -33,7 +42,15 @@ export function useWebSocket(url: string | null, roomId: string) {
         connect();
 
         return () => {
+            cancelled = true;
             clearTimeout(reconnectTimeout);
+            if (socketRef.current) {
+                socketRef.current.onclose = null;
+                socketRef.current.close();
+                socketRef.current = null;
+            }
+            setSocket(null);
+            setIsConnected(false);
         };
     }, [url, roomId]);
 

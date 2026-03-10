@@ -8,20 +8,19 @@ import { useRouter } from "next/navigation";
 
 export default function RoomCanvas({ roomId }: { roomId: string }) {
     const router = useRouter();
+    const [token, setToken] = useState<string | null>(null);
     const [hasMounted, setHasMounted] = useState(false);
-    const [token] = useState<string | null>(() => {
-        if (typeof window === "undefined") return null;
-        return localStorage.getItem("token");
-    });
 
-    const { socket, isConnected, error } = useWebSocket(
-        token ? `${process.env.NEXT_PUBLIC_WS_URL}?token=${token}` : null,
-        roomId
-    );
-
-    React.useEffect(() => {
+    useEffect(() => {
+        const t = localStorage.getItem("token");
+        setToken(t);
         setHasMounted(true);
     }, []);
+
+    const { socket, isConnected, error } = useWebSocket(
+        hasMounted && token ? `${process.env.NEXT_PUBLIC_WS_URL}?token=${token}` : null,
+        roomId
+    );
 
     useEffect(() => {
         if (hasMounted && !token) {
@@ -29,6 +28,14 @@ export default function RoomCanvas({ roomId }: { roomId: string }) {
             router.push("/signin");
         }
     }, [hasMounted, token, router]);
+
+    if (!hasMounted) {
+        return (
+            <div className="h-screen w-screen flex items-center justify-center bg-background">
+                <div>Loading...</div>
+            </div>
+        );
+    }
 
     if (!token) {
         return (
