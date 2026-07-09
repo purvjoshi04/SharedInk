@@ -101,7 +101,7 @@ export default function SignInPage() {
             subtitle="Pick up right where your team left off. Your boards are waiting."
             footer={
                 <>
-                    Don't have an account?{" "}
+                    Don&apos;t have an account?{" "}
                     <Link href="/signup" className="text-white hover:underline underline-offset-4">
                         Create one
                     </Link>
