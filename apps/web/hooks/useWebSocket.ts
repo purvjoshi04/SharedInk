@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import * as React from "react";
 
 export function useWebSocket(url: string | null, roomId: string) {
     const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -55,4 +56,22 @@ export function useWebSocket(url: string | null, roomId: string) {
     }, [url, roomId]);
 
     return { socket, isConnected, error };
+}
+
+const MOBILE_BREAKPOINT = 768;
+
+export function useIsMobile() {
+    const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined);
+
+    React.useEffect(() => {
+        const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+        const onChange = () => {
+            setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+        };
+        mql.addEventListener("change", onChange);
+        setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+        return () => mql.removeEventListener("change", onChange);
+    }, []);
+
+    return !!isMobile;
 }
