@@ -38,7 +38,7 @@ export default function Canvas({
             clearInterval(scaleInterval);
             gameInstance.cleanup();
         };
-    }, [roomId, socket?.url]);
+    }, [roomId, socket , socket?.url]);
 
     const handleZoomIn = useCallback(() => {
         game?.zoom(0.2);
