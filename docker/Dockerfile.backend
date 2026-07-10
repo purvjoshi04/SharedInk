@@ -1,25 +1,31 @@
 FROM node:24-alpine AS base
+RUN apk add --no-cache libc6-compat openssl
+RUN corepack enable
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+FROM base AS pruner
+WORKDIR /app
+RUN corepack prepare pnpm@latest --activate
+COPY . .
+RUN pnpm dlx turbo prune http-backend --docker
 
-FROM base AS deps
-WORKDIR /usr/src/app
+FROM base AS installer
+WORKDIR /app
+RUN corepack prepare pnpm@latest --activate
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY turbo.json ./
-
-COPY packages/ ./packages/
-COPY apps/http-backend/ ./apps/http-backend/
-
+COPY --from=pruner /app/out/json/ .
 RUN pnpm install --frozen-lockfile
 
-RUN cd packages/db && pnpm prisma generate
+COPY --from=pruner /app/out/full/ .
+RUN pnpm --filter=@repo/db run db:generate
+RUN pnpm turbo run build --filter=http-backend
 
 FROM base AS runner
-WORKDIR /usr/src/app
+WORKDIR /app
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 backend
 
-COPY --from=deps /usr/src/app ./
+COPY --from=installer --chown=backend:nodejs /app .
 
+USER backend
 EXPOSE 3001
 
-CMD ["sh", "-c", "cd packages/db && pnpm prisma migrate deploy && cd ../.. && pnpm run dev --filter=http-backend"]
+CMD ["sh", "-c", "pnpm --filter=@repo/db run db:deploy && node apps/http-backend/dist/index.js"]

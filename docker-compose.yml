@@ -70,6 +70,9 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}
     container_name: sharedink-web
     restart: unless-stopped
     env_file:
@@ -77,14 +80,13 @@ services:
     environment:
       - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
       - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
+      - PORT=3000
     ports:
       - "3000:3000"
     depends_on:
       - http-backend
     volumes:
-      - ./apps/web/src:/usr/src/app/apps/web/src:delegated
       - ./apps/web/app:/usr/src/app/apps/web/app:delegated
-      - ./apps/web/public:/usr/src/app/apps/web/public:delegated
       - ./packages/db/src:/usr/src/app/packages/db/src:delegated
       - web_node_modules:/usr/src/app/node_modules
       - web_app_node_modules:/usr/src/app/apps/web/node_modules
