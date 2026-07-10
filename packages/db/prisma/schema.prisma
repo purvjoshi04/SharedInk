@@ -8,19 +8,34 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String?
-  name      String?
-  image     String?
-  provider  String?
-  googleId  String?  @unique
-  rooms     Room[]   @relation("RoomAdmin")
-  chats     Chat[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String               @id @default(uuid())
+  email       String               @unique
+  password    String?
+  name        String?
+  image       String?
+  provider    String?
+  googleId    String?              @unique
+  rooms       Room[]               @relation("RoomAdmin")
+  chats       Chat[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  resetTokens PasswordResetToken[]
 
   @@map("users")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("password_reset_tokens")
 }
 
 model Room {

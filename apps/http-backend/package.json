@@ -9,13 +9,14 @@
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
+    "@repo/common": "workspace:*",
+    "@repo/db": "workspace:*",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "dotenv": "^17.2.3",
-    "@repo/common": "workspace:*",
-    "@repo/db": "workspace:*"
+    "resend": "^6.17.2"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",

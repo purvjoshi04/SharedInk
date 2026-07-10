@@ -3,6 +3,8 @@ import { getJwtSecret, JWT_EXPIRY } from '@repo/common/config';
 import { CreateRoomSchema, createUserSchema, SigninSchema } from '@repo/common/types';
 import { Router, type Router as RouterType } from "express";
 import { userMiddleware } from "../middleware/middleware.js";
+import crypto from "crypto";
+import { sendPasswordResetEmail } from "../lib/email.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
@@ -150,6 +152,77 @@ router.post("/signin", async (req, res) => {
             success: false,
             message: "Something went wrong during signin"
         });
+    }
+});
+
+
+
+
+router.post("/forgot-password", async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ success: false, message: "Email is required" });
+        }
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) {
+            return res.status(200).json({
+                success: true,
+                message: "If that email exists, a reset link has been sent"
+            });
+        }
+
+        const token = crypto.randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+        
+        await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+
+        await prisma.passwordResetToken.create({
+            data: { token, userId: user.id, expiresAt }
+        });
+
+        const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+        await sendPasswordResetEmail(user.email, resetUrl);
+
+        return res.status(200).json({
+            success: true,
+            message: "If that email exists, a reset link has been sent"
+        });
+    } catch (error) {
+        console.error("Forgot password error:", error);
+        return res.status(500).json({ success: false, message: "Something went wrong" });
+    }
+});
+
+router.post("/reset-password", async (req, res) => {
+    try {
+        const { token, password } = req.body;
+        if (!token || !password) {
+            return res.status(400).json({ success: false, message: "Token and password are required" });
+        }
+        if (password.length < 8) {
+            return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
+        }
+
+        const resetToken = await prisma.passwordResetToken.findUnique({ where: { token } });
+
+        if (!resetToken || resetToken.expiresAt < new Date()) {
+            return res.status(400).json({ success: false, message: "Invalid or expired reset link" });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        await prisma.user.update({
+            where: { id: resetToken.userId },
+            data: { password: hashedPassword }
+        });
+
+        await prisma.passwordResetToken.delete({ where: { token } });
+
+        return res.status(200).json({ success: true, message: "Password reset successfully" });
+    } catch (error) {
+        console.error("Reset password error:", error);
+        return res.status(500).json({ success: false, message: "Something went wrong" });
     }
 });
 
