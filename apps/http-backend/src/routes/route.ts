@@ -1,8 +1,8 @@
-import { Prisma, prisma } from '@repo/db';
+import { prisma } from '@repo/db';
 import { getJwtSecret, JWT_EXPIRY } from '@repo/common/config';
 import { CreateRoomSchema, createUserSchema, SigninSchema } from '@repo/common/types';
 import { Router, type Router as RouterType } from "express";
-import { userMiddleware } from "../middleware/middleware";
+import { userMiddleware } from "../middleware/middleware.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
