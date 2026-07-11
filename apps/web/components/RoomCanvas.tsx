@@ -1,21 +1,30 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useSyncExternalStore } from "react";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import Canvas from "./Canvas";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
+const TOKEN_KEY = "token";
+
+function subscribe(callback: () => void) {
+    window.addEventListener("storage", callback);
+    return () => window.removeEventListener("storage", callback);
+}
+
+function getSnapshot() {
+    return localStorage.getItem(TOKEN_KEY);
+}
+
+function getServerSnapshot() {
+    return null;
+}
+
 export default function RoomCanvas({ roomId }: { roomId: string }) {
     const router = useRouter();
-    const [token, setToken] = useState<string | null>(null);
-    const [hasMounted, setHasMounted] = useState(false);
-
-    useEffect(() => {
-        const t = localStorage.getItem("token");
-        setToken(t);
-        setHasMounted(true);
-    }, []);
+    const token = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+    const hasMounted = typeof window !== "undefined";
 
     const { socket, isConnected, error } = useWebSocket(
         hasMounted && token ? `${process.env.NEXT_PUBLIC_WS_URL}?token=${token}` : null,
@@ -25,9 +34,9 @@ export default function RoomCanvas({ roomId }: { roomId: string }) {
     useEffect(() => {
         if (hasMounted && !token) {
             toast.error("You must be logged in to access this room.");
-            router.push("/signin");
+            router.push(`/signin?redirect=${encodeURIComponent(`/canvas/${roomId}`)}`);
         }
-    }, [hasMounted, token, router]);
+    }, [hasMounted, token, router, roomId]);
 
     if (!hasMounted) {
         return (

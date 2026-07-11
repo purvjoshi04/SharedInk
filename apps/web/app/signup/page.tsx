@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { Button } from "@repo/ui/button";
 import { AuthShell, Field, Divider } from "@/app/auth/auth-shell";
@@ -22,8 +22,9 @@ function GoogleIcon() {
     );
 }
 
-export default function SignUpPage() {
+function SignUpPageInner() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const [formData, setFormData] = useState({ name: "", email: "", password: "", confirmPassword: "" });
@@ -51,7 +52,11 @@ export default function SignUpPage() {
         try {
             setGoogleLoading(true);
             setApiError("");
-            await signIn("google", { callbackUrl: "/auth/callback" });
+            const redirectTarget = searchParams.get("redirect");
+            const callbackUrl = redirectTarget
+                ? `/auth/callback?redirect=${encodeURIComponent(redirectTarget)}`
+                : "/auth/callback";
+            await signIn("google", { callbackUrl });
         } catch (error) {
             console.error("Google sign-up error:", error);
             toast.error("Authentication error", { description: "Unable to sign up with Google." });
@@ -76,8 +81,10 @@ export default function SignUpPage() {
             const { token, roomId } = response.data;
             localStorage.setItem("token", token);
 
+            const redirectTarget = searchParams.get("redirect");
+
             toast.success("Signup successful!", { description: "Redirecting to your canvas...", duration: 1500 });
-            setTimeout(() => router.push(`/canvas/${roomId}`), 1500);
+            setTimeout(() => router.push(redirectTarget || `/canvas/${roomId}`), 1500);
         } catch (error) {
             setLoading(false);
             handleAuthError(error, setErrors, setApiError, {
@@ -240,5 +247,13 @@ export default function SignUpPage() {
                 </Button>
             </form>
         </AuthShell>
+    );
+}
+
+export default function SignUpPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-neutral-950" />}>
+            <SignUpPageInner />
+        </Suspense>
     );
 }

@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import { toast } from 'sonner';
 
-export default function AuthCallbackPage() {
+function AuthCallbackInner() {
     const { data: session, status } = useSession();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [isProcessing, setIsProcessing] = useState(false);
 
     useEffect(() => {
@@ -34,7 +35,8 @@ export default function AuthCallbackPage() {
                         description: 'Setting up your canvas...',
                     });
 
-                    router.push(`/canvas/${roomId}`);
+                    const redirectTarget = searchParams.get('redirect');
+                    router.push(redirectTarget || `/canvas/${roomId}`);
                 } catch (error) {
                     console.error('Room creation error:', error);
                     if (axios.isAxiosError(error) && error.response?.data) {
@@ -51,7 +53,7 @@ export default function AuthCallbackPage() {
         };
 
         createRoomAndRedirect();
-    }, [session, status, router, isProcessing]);
+    }, [session, status, router, isProcessing, searchParams]);
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-neutral-950">
@@ -60,5 +62,17 @@ export default function AuthCallbackPage() {
                 <p className="mt-4 text-white">Setting up your workspace...</p>
             </div>
         </div>
+    );
+}
+
+export default function AuthCallbackPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex min-h-screen items-center justify-center bg-neutral-950">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-400"></div>
+            </div>
+        }>
+            <AuthCallbackInner />
+        </Suspense>
     );
 }
