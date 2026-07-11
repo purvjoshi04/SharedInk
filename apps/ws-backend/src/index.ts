@@ -149,92 +149,86 @@ wss.on('connection', (ws: WebSocket, req) => {
                 });
             }
 
-            if (parsedData.type === "canvas_update") {
-                const { roomId, canvasData } = parsedData;
-
-                if (!roomId || !canvasData) {
-                    ws.send(JSON.stringify({ type: "error", error: "Invalid canvas data" }));
+            if (parsedData.type === "shape_add") {
+                const { roomId, shape } = parsedData;
+                if (!roomId || !shape?.id || !shape?.type) {
+                    ws.send(JSON.stringify({ type: "error", error: "Invalid shape" }));
                     return;
                 }
 
                 const room = await prisma.room.findUnique({ where: { id: roomId } });
-
                 if (!room) {
                     ws.send(JSON.stringify({ type: "error", error: "Room not found" }));
                     return;
                 }
 
-                users.forEach(user => {
-                    if (user.ws !== ws && user.rooms.includes(roomId)) {
-                        user.ws.send(JSON.stringify({ type: "canvas_update", roomId, canvasData, userId }));
+                const saved = await prisma.shape.create({
+                    data: {
+                        id: shape.id,
+                        roomId,
+                        userId,
+                        type: shape.type,
+                        data: shape,
+                    },
+                });
+
+                users.forEach(u => {
+                    if (u.ws !== ws && u.rooms.includes(roomId)) {
+                        u.ws.send(JSON.stringify({ type: "shape_add", roomId, shape: saved.data }));
+                    }
+                });
+            }
+
+            if (parsedData.type === "move_shape") {
+                const { roomId, shapeId, newShape } = parsedData;
+                if (!roomId || !shapeId || !newShape) {
+                    ws.send(JSON.stringify({ type: "error", error: "Invalid move" }));
+                    return;
+                }
+
+                try {
+                    const updated = await prisma.shape.update({
+                        where: { id: shapeId },
+                        data: { data: newShape },
+                    });
+
+                    users.forEach(u => {
+                        if (u.ws !== ws && u.rooms.includes(roomId)) {
+                            u.ws.send(JSON.stringify({ type: "move_shape", roomId, shapeId, newShape: updated.data }));
+                        }
+                    });
+                } catch {
+                }
+            }
+
+            if (parsedData.type === "delete_shape") {
+                const { roomId, shapeId } = parsedData;
+                if (!roomId || !shapeId) {
+                    ws.send(JSON.stringify({ type: "error", error: "Invalid delete" }));
+                    return;
+                }
+
+                try {
+                    await prisma.shape.delete({ where: { id: shapeId } });
+                } catch {
+
+                }
+
+                users.forEach(u => {
+                    if (u.ws !== ws && u.rooms.includes(roomId)) {
+                        u.ws.send(JSON.stringify({ type: "delete_shape", roomId, shapeId }));
                     }
                 });
             }
 
             if (parsedData.type === "request_canvas_state") {
                 const { roomId } = parsedData;
-                const otherUsers = users.filter(u => u.ws !== ws && u.rooms.includes(roomId));
-
-                if (otherUsers.length > 0) {
-                    otherUsers[0]!.ws.send(JSON.stringify({
-                        type: "send_canvas_state",
-                        roomId,
-                        requesterId: userId
-                    }));
-                }
-            }
-
-            if (parsedData.type === "canvas_state") {
-                const { roomId, canvasData, requesterId } = parsedData;
-                const requester = users.find(u => u.userId === requesterId && u.ws !== ws);
-                if (requester && requester.ws.readyState === WebSocket.OPEN) {
-                    requester.ws.send(JSON.stringify({ type: "canvas_state", roomId, canvasData }));
-                }
-            }
-
-            if (parsedData.type === "delete_shape") {
-                const { roomId, shape } = parsedData;
-                const chats = await prisma.chat.findMany({ where: { roomId } });
-                for (const chat of chats) {
-                    try {
-                        const parsed = JSON.parse(chat.message);
-                        const shapeData = parsed.shape || parsed;
-                        if (JSON.stringify(shapeData) === JSON.stringify(shape)) {
-                            await prisma.chat.delete({ where: { id: chat.id } });
-                            break;
-                        }
-                    } catch { continue; }
-                }
-
-                users.forEach(user => {
-                    if (user.ws !== ws && user.rooms.includes(roomId)) {
-                        user.ws.send(JSON.stringify({ type: "delete_shape", roomId, shape }));
-                    }
-                });
-            }
-
-            if (parsedData.type === "move_shape") {
-                const { roomId, oldShape, newShape } = parsedData;
-                const chats = await prisma.chat.findMany({ where: { roomId } });
-                for (const chat of chats) {
-                    try {
-                        const parsed = JSON.parse(chat.message);
-                        const shapeData = parsed.shape || parsed;
-                        if (JSON.stringify(shapeData) === JSON.stringify(oldShape)) {
-                            await prisma.chat.update({
-                                where: { id: chat.id },
-                                data: { message: JSON.stringify(newShape) }
-                            });
-                            break;
-                        }
-                    } catch { continue; }
-                }
-
-                users.forEach(user => {
-                    if (user.ws !== ws && user.rooms.includes(roomId)) {
-                        user.ws.send(JSON.stringify({ type: "move_shape", roomId, oldShape, newShape }));
-                    }
-                });
+                const shapes = await prisma.shape.findMany({ where: { roomId } });
+                ws.send(JSON.stringify({
+                    type: "canvas_state",
+                    roomId,
+                    shapes: shapes.map(s => s.data),
+                }));
             }
 
         } catch (error) {
