@@ -120,12 +120,8 @@ export class Game {
         if (this.socket.readyState !== WebSocket.OPEN) return;
         this.shapes = await getExistingShapes(this.roomId);
         this.redraw();
-        if (this.socket.readyState !== WebSocket.OPEN) return;
         this.socket.send(JSON.stringify({ type: "join_room", roomId: this.roomId }));
-        setTimeout(() => {
-            if (this.socket.readyState !== WebSocket.OPEN) return;
-            this.socket.send(JSON.stringify({ type: "request_canvas_state", roomId: this.roomId }));
-        }, 200);
+        this.socket.send(JSON.stringify({ type: "request_canvas_state", roomId: this.roomId }));
     }
 
     private deleteSelected() {
@@ -141,15 +137,24 @@ export class Game {
     }
 
     private broadcastShape(shape: Shape) {
-        this.socket.send(JSON.stringify({ type: "chat", message: JSON.stringify(shape), roomId: this.roomId }));
+        this.socket.send(JSON.stringify({ type: "shape_add", shape, roomId: this.roomId }));
     }
 
     private broadcastMove(oldShape: Shape, newShape: Shape) {
-        this.socket.send(JSON.stringify({ type: "move_shape", oldShape, newShape, roomId: this.roomId }));
+        this.socket.send(JSON.stringify({
+            type: "move_shape",
+            shapeId: oldShape.id,
+            newShape,
+            roomId: this.roomId,
+        }));
     }
 
     private broadcastDelete(shape: Shape) {
-        this.socket.send(JSON.stringify({ type: "delete_shape", shape, roomId: this.roomId }));
+        this.socket.send(JSON.stringify({
+            type: "delete_shape",
+            shapeId: shape.id,
+            roomId: this.roomId,
+        }));
     }
 
     private initWebSocket() {
@@ -157,28 +162,28 @@ export class Game {
             try {
                 const msg = JSON.parse(event.data);
 
-                if (msg.type === "chat" && msg.roomId === this.roomId) {
-                    this.shapes.push(JSON.parse(msg.message));
+                if (msg.type === "shape_add" && msg.roomId === this.roomId) {
+                    this.shapes.push(msg.shape);
                     this.redraw();
                 }
                 if (msg.type === "send_canvas_state" && msg.roomId === this.roomId) {
                     this.socket.send(JSON.stringify({ type: "canvas_state", roomId: this.roomId, canvasData: this.shapes, requesterId: msg.requesterId }));
                 }
-                if (msg.type === "canvas_state" && msg.roomId === this.roomId && Array.isArray(msg.canvasData)) {
-                    const existing = new Set(this.shapes.map(s => JSON.stringify(s)));
-                    msg.canvasData.forEach((s: Shape) => { if (!existing.has(JSON.stringify(s))) this.shapes.push(s); });
+                if (msg.type === "canvas_state" && msg.roomId === this.roomId && Array.isArray(msg.shapes)) {
+                    const existingIds = new Set(this.shapes.map(s => s.id));
+                    msg.shapes.forEach((s: Shape) => { if (!existingIds.has(s.id)) this.shapes.push(s); });
                     this.redraw();
                 }
                 if (msg.type === "delete_shape" && msg.roomId === this.roomId) {
-                    this.shapes = this.shapes.filter(s => JSON.stringify(s) !== JSON.stringify(msg.shape));
-                    if (JSON.stringify(this.selectedShape) === JSON.stringify(msg.shape)) {
+                    this.shapes = this.shapes.filter(s => s.id !== msg.shapeId);
+                    if (this.selectedShape?.id === msg.shapeId) {
                         this.selectedShape = null;
                         this.selectedShapeIndex = -1;
                     }
                     this.redraw();
                 }
                 if (msg.type === "move_shape" && msg.roomId === this.roomId) {
-                    const idx = this.shapes.findIndex(s => JSON.stringify(s) === JSON.stringify(msg.oldShape));
+                    const idx = this.shapes.findIndex(s => s.id === msg.shapeId);
                     if (idx !== -1) {
                         this.shapes[idx] = msg.newShape;
                         if (this.selectedShapeIndex === idx) this.selectedShape = msg.newShape;

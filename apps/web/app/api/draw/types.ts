@@ -1,4 +1,8 @@
-export type RectShape = {
+export interface BaseShape {
+    id: string;
+}
+
+export type RectShape = BaseShape & {
     type: 'rect';
     x: number;
     y: number;
@@ -6,19 +10,19 @@ export type RectShape = {
     height: number;
 };
 
-export type CircleShape = {
+export type CircleShape = BaseShape & {
     type: 'circle';
     centerX: number;
     centerY: number;
     radius: number;
 };
 
-export type PencilShape = {
+export type PencilShape = BaseShape & {
     type: 'pencil';
     points: { x: number; y: number }[];
 };
 
-export type ArrowShape = {
+export type ArrowShape = BaseShape & {
     type: 'arrow';
     startX: number;
     startY: number;

@@ -8,7 +8,7 @@ const SELECTION_PADDING = 8;
 
 const RESIZE_CURSORS: Record<ResizeHandle, string> = {
     tl: 'nwse-resize', tr: 'nesw-resize',
-    bl: 'nesw-resize',  br: 'nwse-resize',
+    bl: 'nesw-resize', br: 'nwse-resize',
 };
 
 interface MouseHandlerOptions {
@@ -100,7 +100,7 @@ export class MouseHandler {
                 this.opts.onShapeDeleted(shape);
                 for (const pts of newStrokes) {
                     if (pts.length >= 2) {
-                        const newShape: Shape = { type: 'pencil', points: pts };
+                        const newShape: Shape = { id: crypto.randomUUID(), type: 'pencil', points: pts };
                         shapes.push(newShape);
                         this.opts.onShapeCreated(newShape);
                     }
@@ -186,7 +186,7 @@ export class MouseHandler {
             const screenY = e.clientY - rect.top;
             const world = this.screenToWorld(screenX, screenY);
             const cam = this.opts.getCamera();
-            
+
             if (this.isResizing && this.resizeHandle && this.opts.selectedShape) {
                 const worldPos = this.screenToWorld(screenX, screenY);
                 const resized = resizeShape(this.opts.selectedShape, this.resizeHandle, worldPos.x, worldPos.y);
@@ -295,16 +295,16 @@ export class MouseHandler {
             let shape: Shape;
 
             if (tool === ShapeTool.Rectangle) {
-                shape = { type: 'rect', x: this.startX, y: this.startY, width, height };
+                shape = { id: crypto.randomUUID(), type: 'rect', x: this.startX, y: this.startY, width, height };
             } else if (tool === ShapeTool.Circle) {
                 const radius = Math.sqrt(width * width + height * height) / 2;
-                shape = { type: 'circle', centerX: this.startX + width / 2, centerY: this.startY + height / 2, radius };
+                shape = { id: crypto.randomUUID(), type: 'circle', centerX: this.startX + width / 2, centerY: this.startY + height / 2, radius };
             } else if (tool === ShapeTool.Pencil) {
                 this.currentPencilStroke.push({ x: world.x, y: world.y });
-                shape = { type: 'pencil', points: [...this.currentPencilStroke] };
+                shape = { id: crypto.randomUUID(), type: 'pencil', points: [...this.currentPencilStroke] };
                 this.currentPencilStroke = [];
             } else if (tool === ShapeTool.Arrow) {
-                shape = { type: 'arrow', startX: this.startX, startY: this.startY, endX: world.x, endY: world.y };
+                shape = { id: crypto.randomUUID(), type: 'arrow', startX: this.startX, startY: this.startY, endX: world.x, endY: world.y };
             } else {
                 return;
             }
