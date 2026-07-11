@@ -61,10 +61,7 @@ router.post("/signup", async (req, res) => {
 
         if (!room) {
             room = await prisma.room.create({
-                data: {
-                    slug: `canvas-${user.id}-${Date.now()}`,
-                    adminId: user.id,
-                }
+                data: { slug: `canvas-${user.id}-${Date.now()}`, adminId: user.id }
             });
         }
         return res.status(201).json({
@@ -129,10 +126,7 @@ router.post("/signin", async (req, res) => {
 
         if (!room) {
             room = await prisma.room.create({
-                data: {
-                    slug: `canvas-${user.id}-${Date.now()}`,
-                    adminId: user.id,
-                }
+                data: { slug: `canvas-${user.id}-${Date.now()}`, adminId: user.id }
             });
         }
 
@@ -155,9 +149,6 @@ router.post("/signin", async (req, res) => {
     }
 });
 
-
-
-
 router.post("/forgot-password", async (req, res) => {
     try {
         const { email } = req.body;
@@ -174,7 +165,7 @@ router.post("/forgot-password", async (req, res) => {
 
         const token = crypto.randomBytes(32).toString("hex");
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-        
+
         await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
 
         await prisma.passwordResetToken.create({
@@ -287,6 +278,21 @@ router.get("/chats/:roomId", async (req, res) => {
     }
 });
 
+router.get("/shapes/:roomId", async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    try {
+        const roomId = req.params.roomId;
+        const shapes = await prisma.shape.findMany({
+            where: { roomId },
+            orderBy: { createdAt: "asc" }
+        });
+        res.json({ shapes });
+    } catch (error) {
+        console.error("Error fetching shapes:", error);
+        res.status(500).json({ error: "Failed to fetch shapes" });
+    }
+});
+
 router.get("/room/:slug", async (req, res) => {
     try {
         const slug = req.params.slug;
@@ -311,7 +317,6 @@ router.get("/room/:slug", async (req, res) => {
         res.status(500).json({ error: "Failed to fetch room" });
     }
 });
-
 
 router.post('/auth/google', async (req, res) => {
     const { email, name, image } = req.body;
