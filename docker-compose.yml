@@ -35,13 +35,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./apps/http-backend/src:/usr/src/app/apps/http-backend/src:delegated
-      - ./packages/db/src:/usr/src/app/packages/db/src:delegated
-      - ./packages/db/prisma:/usr/src/app/packages/db/prisma:delegated
-      - backend_node_modules:/usr/src/app/node_modules
-      - backend_app_node_modules:/usr/src/app/apps/http-backend/node_modules
-      - backend_packages_node_modules:/usr/src/app/packages/db/node_modules
 
   ws-backend:
     build:
@@ -58,13 +51,6 @@ services:
     depends_on:
       - postgres
       - http-backend
-    volumes:
-      - ./apps/ws-backend/src:/usr/src/app/apps/ws-backend/src:delegated
-      - ./packages/db/src:/usr/src/app/packages/db/src:delegated
-      - ./packages/db/prisma:/usr/src/app/packages/db/prisma:delegated
-      - ws_node_modules:/usr/src/app/node_modules
-      - ws_app_node_modules:/usr/src/app/apps/ws-backend/node_modules
-      - ws_packages_node_modules:/usr/src/app/packages/db/node_modules
 
   web:
     build:
@@ -85,24 +71,9 @@ services:
       - "3000:3000"
     depends_on:
       - http-backend
-    volumes:
-      - ./apps/web/app:/usr/src/app/apps/web/app:delegated
-      - ./packages/db/src:/usr/src/app/packages/db/src:delegated
-      - web_node_modules:/usr/src/app/node_modules
-      - web_app_node_modules:/usr/src/app/apps/web/node_modules
-      - web_next:/usr/src/app/apps/web/.next
 
 volumes:
   postgres_data:
-  backend_node_modules:
-  backend_app_node_modules:
-  backend_packages_node_modules:
-  ws_node_modules:
-  ws_app_node_modules:
-  ws_packages_node_modules:
-  web_node_modules:
-  web_app_node_modules:
-  web_next:
 
 networks:
   sharedink-network:
