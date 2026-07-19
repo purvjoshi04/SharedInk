@@ -8,7 +8,7 @@ export class CanvasRenderer {
     constructor(
         private ctx: CanvasRenderingContext2D,
         private canvas: HTMLCanvasElement,
-    ) {}
+    ) { }
 
     render(shapes: Shape[], camera: Camera, selectedShape: Shape | null) {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -28,14 +28,14 @@ export class CanvasRenderer {
         }
     }
 
-    drawShapePreview(type: string, startX: number, startY: number, worldX: number, worldY: number, camera: Camera) {
+    drawShapePreview(type: string, startX: number, startY: number, worldX: number, worldY: number, camera: Camera, color: string = "rgba(255, 255, 255, 1)") {
         const width = worldX - startX;
         const height = worldY - startY;
 
         this.ctx.save();
         this.ctx.translate(camera.x, camera.y);
         this.ctx.scale(camera.scale, camera.scale);
-        this.ctx.strokeStyle = "rgba(255, 255, 255, 1)";
+        this.ctx.strokeStyle = color;
         this.ctx.lineWidth = 2 / camera.scale;
 
         if (type === 'rect') {
@@ -52,10 +52,11 @@ export class CanvasRenderer {
         this.ctx.restore();
     }
 
-    drawPencilPreview(points: { x: number; y: number }[], camera: Camera) {
+    drawPencilPreview(points: { x: number; y: number }[], camera: Camera, color: string = "rgba(255, 255, 255, 1)") {
         this.ctx.save();
         this.ctx.translate(camera.x, camera.y);
         this.ctx.scale(camera.scale, camera.scale);
+        this.ctx.strokeStyle = color;
         this.drawPencilStroke(points, camera.scale);
         this.ctx.restore();
     }
@@ -64,6 +65,38 @@ export class CanvasRenderer {
         const d = radius * 2;
         const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${d}' height='${d}' viewBox='0 0 ${d} ${d}'><circle cx='${radius}' cy='${radius}' r='${radius - 1}' fill='none' stroke='white' stroke-width='1.5'/></svg>`;
         return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${radius} ${radius}, crosshair`;
+    }
+
+    drawRemoteSelection(shape: Shape, camera: Camera, color: string, name: string) {
+        const P = this.SELECTION_PADDING;
+        const bounds = getShapeBounds(shape);
+
+        const tl = { x: bounds.minX * camera.scale + camera.x, y: bounds.minY * camera.scale + camera.y };
+        const br = { x: bounds.maxX * camera.scale + camera.x, y: bounds.maxY * camera.scale + camera.y };
+
+        const x = tl.x - P, y = tl.y - P;
+        const w = (br.x - tl.x) + P * 2;
+        const h = (br.y - tl.y) + P * 2;
+
+        this.ctx.save();
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = 1.5;
+        this.ctx.setLineDash([6, 3]);
+        this.ctx.strokeRect(x, y, w, h);
+        this.ctx.setLineDash([]);
+
+        this.ctx.font = "11px sans-serif";
+        const textWidth = this.ctx.measureText(name).width;
+        const tagPadding = 4;
+        const tagHeight = 16;
+        const tagY = y - tagHeight - 2;
+
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(x, tagY, textWidth + tagPadding * 2, tagHeight);
+        this.ctx.fillStyle = "white";
+        this.ctx.fillText(name, x + tagPadding, tagY + tagHeight - 4);
+
+        this.ctx.restore();
     }
 
     private drawShape(shape: Shape, scale: number) {

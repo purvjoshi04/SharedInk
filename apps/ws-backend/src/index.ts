@@ -12,6 +12,7 @@ interface DecodedToken extends JwtPayload {
 interface User {
     ws: WebSocket,
     userId: string,
+    name: string,
     rooms: string[]
 }
 
@@ -35,7 +36,7 @@ function checkUser(token: string): string | null {
     }
 }
 
-wss.on('connection', (ws: WebSocket, req) => {
+wss.on('connection', async (ws: WebSocket, req) => {
     const url = req.url;
     if (!url) {
         ws.close(1008, 'Missing URL');
@@ -63,21 +64,27 @@ wss.on('connection', (ws: WebSocket, req) => {
         return;
     }
 
+    const dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true, email: true },
+    });
+    const name = dbUser?.name || dbUser?.email || "Anonymous";
+
     ws.send(JSON.stringify({ type: 'connected', userId }));
 
     users.push({
         userId,
+        name,
         rooms: [],
         ws
     });
 
     ws.on('message', async (message) => {
-        const parsedData = JSON.parse(message.toString());
-        console.log(`[WS] Received: ${parsedData.type} from userId: ${userId}, total users: ${users.length}`);
-        console.log(`[WS] Users in room:`, users.filter(u => u.rooms.includes(parsedData.roomId)).length);
-
         try {
             const parsedData = JSON.parse(message.toString());
+            console.log(`[WS] Received: ${parsedData.type} from userId: ${userId}, total users: ${users.length}`);
+            console.log(`[WS] Users in room:`, users.filter(u => u.rooms.includes(parsedData.roomId)).length);
+
             if (parsedData.type === "join_room") {
                 const { roomId } = parsedData;
                 const room = await prisma.room.findUnique({
@@ -92,11 +99,14 @@ wss.on('connection', (ws: WebSocket, req) => {
                 const user = users.find(x => x.ws === ws);
                 if (user && !user.rooms.includes(roomId)) {
                     user.rooms.push(roomId);
-                    ws.send(JSON.stringify({ type: "room_joined", roomId }));
+                    const existingMembers = users
+                        .filter(u => u.ws !== ws && u.rooms.includes(roomId))
+                        .map(u => ({ userId: u.userId, name: u.name }));
+                    ws.send(JSON.stringify({ type: "room_users", roomId, users: existingMembers }));
 
                     users.forEach(u => {
                         if (u.ws !== ws && u.rooms.includes(roomId)) {
-                            u.ws.send(JSON.stringify({ type: "user_joined", roomId, userId }));
+                            u.ws.send(JSON.stringify({ type: "user_joined", roomId, userId, name: user.name }));
                         }
                     });
                 }
@@ -199,6 +209,67 @@ wss.on('connection', (ws: WebSocket, req) => {
                     });
                 } catch {
                 }
+            }
+
+            if (parsedData.type === "cursor_move") {
+                const { roomId, x, y } = parsedData;
+                if (typeof roomId !== "string" || typeof x !== "number" || typeof y !== "number") return;
+
+                const user = users.find(u => u.ws === ws);
+                if (!user || !user.rooms.includes(roomId)) return;
+
+                users.forEach(u => {
+                    if (u.ws !== ws && u.rooms.includes(roomId)) {
+                        u.ws.send(JSON.stringify({
+                            type: "cursor_move",
+                            roomId,
+                            userId,
+                            name: user.name,
+                            x,
+                            y,
+                        }));
+                    }
+                });
+            }
+
+            if (parsedData.type === "shape_preview") {
+                const { roomId, preview } = parsedData;
+                if (typeof roomId !== "string") return;
+
+                const user = users.find(u => u.ws === ws);
+                if (!user || !user.rooms.includes(roomId)) return;
+
+                users.forEach(u => {
+                    if (u.ws !== ws && u.rooms.includes(roomId)) {
+                        u.ws.send(JSON.stringify({
+                            type: "shape_preview",
+                            roomId,
+                            userId,
+                            name: user.name,
+                            preview,
+                        }));
+                    }
+                });
+            }
+
+            if (parsedData.type === "shape_select") {
+                const { roomId, shapeId } = parsedData;
+                if (typeof roomId !== "string") return;
+
+                const user = users.find(u => u.ws === ws);
+                if (!user || !user.rooms.includes(roomId)) return;
+
+                users.forEach(u => {
+                    if (u.ws !== ws && u.rooms.includes(roomId)) {
+                        u.ws.send(JSON.stringify({
+                            type: "shape_select",
+                            roomId,
+                            userId,
+                            name: user.name,
+                            shapeId: shapeId ?? null,
+                        }));
+                    }
+                });
             }
 
             if (parsedData.type === "delete_shape") {
