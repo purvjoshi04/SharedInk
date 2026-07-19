@@ -105,7 +105,10 @@ function SignUpPageInner() {
             footer={
                 <>
                     Already have an account?{" "}
-                    <Link href="/signin" className="text-white hover:underline underline-offset-4">
+                    <Link
+                        href={searchParams.get("redirect") ? `/signin?redirect=${encodeURIComponent(searchParams.get("redirect")!)}` : "/signin"}
+                        className="text-white hover:underline underline-offset-4"
+                    >
                         Sign in
                     </Link>
                 </>
