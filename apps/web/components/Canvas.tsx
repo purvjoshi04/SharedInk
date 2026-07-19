@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Navbar, { ShapeTool } from "./Navbar";
 import CanvasControls from "./CanvasControls";
-import { Game } from "@/app/api/draw/game";
+import { Game, RemoteCursor, PresenceUser } from "@/app/api/draw/game";
 
 export default function Canvas({
     roomId,
@@ -15,6 +15,8 @@ export default function Canvas({
     const [game, setGame] = useState<Game>();
     const [selectedTool, setSelectedTool] = useState<ShapeTool>(ShapeTool.Pointer);
     const [scale, setScale] = useState(1);
+    const [cursors, setCursors] = useState<RemoteCursor[]>([]);
+    const [presence, setPresence] = useState<PresenceUser[]>([]);
 
     useEffect(() => {
         game?.setTool(selectedTool)
@@ -28,6 +30,8 @@ export default function Canvas({
         gameInstance.setOnShapeCreated(() => {
             setSelectedTool(ShapeTool.Pointer);
         });
+        gameInstance.setOnCursorsUpdate(setCursors);
+        gameInstance.setOnPresenceUpdate(setPresence);
         setGame(gameInstance);
 
         const scaleInterval = setInterval(() => {
@@ -37,8 +41,10 @@ export default function Canvas({
         return () => {
             clearInterval(scaleInterval);
             gameInstance.cleanup();
+            setCursors([]);
+            setPresence([]);
         };
-    }, [roomId, socket , socket?.url]);
+    }, [roomId, socket, socket?.url]);
 
     const handleZoomIn = useCallback(() => {
         game?.zoom(0.2);
@@ -74,7 +80,7 @@ export default function Canvas({
 
     return (
         <div className="relative h-screen w-screen">
-            <Navbar selectedTool={selectedTool} onToolChange={setSelectedTool} />
+            <Navbar selectedTool={selectedTool} onToolChange={setSelectedTool} roomId={roomId ?? ""} />
             <canvas ref={canvasRef} className="block w-full h-full"></canvas>
             <CanvasControls
                 scale={scale}
@@ -82,6 +88,39 @@ export default function Canvas({
                 onZoomOut={handleZoomOut}
                 onResetView={handleResetView}
             />
+
+            {presence.length > 0 && (
+                <div className="absolute top-8 right-8 z-10 flex items-center -space-x-2">
+                    {presence.map((u) => (
+                        <div
+                            key={u.userId}
+                            title={u.name || "Anonymous"}
+                            className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#232323] text-xs font-semibold text-white shadow-md"
+                            style={{ backgroundColor: u.color }}
+                        >
+                            {(u.name || "?").charAt(0).toUpperCase()}
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {cursors.map((cursor) => (
+                <div
+                    key={cursor.userId}
+                    className="pointer-events-none absolute left-0 top-0 z-50"
+                    style={{ transform: `translate(${cursor.screenX}px, ${cursor.screenY}px)` }}
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill={cursor.color} style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>
+                        <path d="M4 2l14 8-6 2-2 6z" />
+                    </svg>
+                    <span
+                        className="ml-4 -mt-1 inline-block whitespace-nowrap rounded px-1.5 py-0.5 text-xs text-white"
+                        style={{ backgroundColor: cursor.color }}
+                    >
+                        {cursor.name}
+                    </span>
+                </div>
+            ))}
 
             <div className="fixed bottom-4 left-4 bg-[#232323] rounded-lg shadow-lg p-3 text-white text-sm max-w-xs">
                 <div className="font-semibold mb-2">Controls:</div>
