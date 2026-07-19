@@ -1,5 +1,6 @@
-import { Circle, EraserIcon, MousePointer2, MoveRight, PencilIcon, Square } from "lucide-react"
-import { ReactNode } from "react"
+import { Circle, EraserIcon, MousePointer2, MoveRight, PencilIcon, Square, Share2, Check } from "lucide-react"
+import { ReactNode, useState } from "react"
+import { toast } from "sonner";
 
 export enum ShapeTool {
     Pointer = "pointer",
@@ -7,15 +8,18 @@ export enum ShapeTool {
     Circle = "circle",
     Arrow = "arrow",
     Pencil = "pencil",
-    Eraser = "eraser"
+    Eraser = "eraser",
 }
 
 interface NavbarProps {
     selectedTool: ShapeTool;
     onToolChange: (tool: ShapeTool) => void;
+    roomId: string;
 }
 
-export default function Navbar({ selectedTool, onToolChange }: NavbarProps) {
+export default function Navbar({ selectedTool, onToolChange, roomId }: NavbarProps) {
+    const [copied, setCopied] = useState(false);
+
     const tools = [
         { icon: <MousePointer2 size={18} />, label: "Select", tool: ShapeTool.Pointer },
         { icon: <Square size={18} />, label: "Rectangle", tool: ShapeTool.Rectangle },
@@ -24,6 +28,18 @@ export default function Navbar({ selectedTool, onToolChange }: NavbarProps) {
         { icon: <PencilIcon size={18} />, label: "Pencil", tool: ShapeTool.Pencil },
         { icon: <EraserIcon size={18} />, label: "Eraser", tool: ShapeTool.Eraser }
     ]
+
+    const handleShare = async () => {
+        const url = `${window.location.origin}/canvas/${roomId}`;
+        try {
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            toast.success("Link copied!", { description: "Share it with anyone to draw together." });
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            toast.error("Couldn't copy link", { description: "Copy it manually from the address bar." });
+        }
+    };
 
     return (
         <div className="absolute top-8 left-1/2 -translate-x-1/2 z-10 
@@ -40,6 +56,12 @@ export default function Navbar({ selectedTool, onToolChange }: NavbarProps) {
                     />
                 </div>
             ))}
+            <Divider />
+            <ToolButton
+                icon={copied ? <Check size={18} /> : <Share2 size={18} />}
+                label="Copy share link"
+                onClick={handleShare}
+            />
         </div>
     )
 }
